@@ -1,58 +1,72 @@
 using System;
-using System.Net.Http;
+using System.IO;
+using System.Net;
 using System.Text;
 using BimAiAssistant.Models;
 using Newtonsoft.Json;
 
 namespace BimAiAssistant.Api
 {
+    // Uses HttpWebRequest (always available in net48 — no extra assembly reference needed)
     public static class BimApiClient
     {
-        private const string BaseUrl = "https://autodesk-revit-backend.up.railway.app";
-
-        // 30-second timeout — prevents indefinite UI freeze
-        private static readonly HttpClient _http = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
+        private const string BaseUrl    = "https://autodesk-revit-backend.up.railway.app";
+        private const int    TimeoutMs  = 30_000;
 
         public static ActionResponse GenerateAction(string instruction)
         {
-            string url = $"{BaseUrl}/api/v1/generate-action";
+            string url  = $"{BaseUrl}/api/v1/generate-action";
+            string body = JsonConvert.SerializeObject(new { instruction });
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(body);
 
-            var body    = JsonConvert.SerializeObject(new { instruction });
-            var content = new StringContent(body, Encoding.UTF8, "application/json");
+            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+            req.Method        = "POST";
+            req.ContentType   = "application/json";
+            req.ContentLength = bodyBytes.Length;
+            req.Timeout       = TimeoutMs;
 
-            HttpResponseMessage response;
             try
             {
-                response = _http.PostAsync(url, content).GetAwaiter().GetResult();
+                using (Stream s = req.GetRequestStream())
+                    s.Write(bodyBytes, 0, bodyBytes.Length);
             }
-            catch (System.Threading.Tasks.TaskCanceledException)
+            catch (WebException ex)
+            {
+                throw new Exception($"Cannot reach backend at {BaseUrl}.\n{ex.Message}");
+            }
+
+            string responseBody;
+            try
+            {
+                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (Stream s = resp.GetResponseStream())
+                using (StreamReader r = new StreamReader(s, Encoding.UTF8))
+                {
+                    responseBody = r.ReadToEnd();
+
+                    if (resp.StatusCode != HttpStatusCode.OK)
+                        throw new Exception($"Backend returned HTTP {(int)resp.StatusCode}:\n{responseBody}");
+                }
+            }
+            catch (WebException ex) when (ex.Status == WebExceptionStatus.Timeout)
             {
                 throw new Exception("Request timed out after 30 seconds. Check that the backend is running.");
             }
-            catch (HttpRequestException ex)
+            catch (WebException ex) when (ex.Response is HttpWebResponse errResp)
             {
-                throw new Exception($"Cannot reach backend at {BaseUrl}. Details: {ex.Message}");
+                using (Stream s = errResp.GetResponseStream())
+                using (StreamReader r = new StreamReader(s, Encoding.UTF8))
+                    throw new Exception($"Backend returned HTTP {(int)errResp.StatusCode}:\n{r.ReadToEnd()}");
             }
 
-            string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-
-            if (!response.IsSuccessStatusCode)
-                throw new Exception($"Backend returned HTTP {(int)response.StatusCode}:\n{responseBody}");
-
-            ActionResponse result;
             try
             {
-                result = JsonConvert.DeserializeObject<ActionResponse>(responseBody);
+                return JsonConvert.DeserializeObject<ActionResponse>(responseBody);
             }
             catch (JsonException ex)
             {
                 throw new Exception($"Could not parse backend response:\n{ex.Message}\n\nRaw:\n{responseBody}");
             }
-
-            return result;
         }
     }
 }
