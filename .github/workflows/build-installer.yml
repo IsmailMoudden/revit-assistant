@@ -27,16 +27,24 @@ jobs:
       - name: Assemble and ZIP
         shell: pwsh
         run: |
-          $out     = "bin\Release\net48"
+          # Locate the DLL — path varies by platform target (x64 adds a subfolder)
+          $dll = Get-ChildItem -Recurse -Filter "BimAiAssistant.dll" -Path "bin" |
+                   Where-Object { $_.FullName -notmatch "\\ref\\" } |
+                   Select-Object -First 1
+
+          if (-not $dll) {
+            Write-Host "bin\ tree:"
+            Get-ChildItem -Recurse "bin" | Select-Object FullName
+            Write-Error "BimAiAssistant.dll not found anywhere under bin\"
+            exit 1
+          }
+
+          $out     = $dll.DirectoryName
+          Write-Host "Using build output: $out"
           $staging = "$env:RUNNER_TEMP\BIMAI"
 
           Write-Host "Build output:"
           Get-ChildItem $out | Select-Object Name
-
-          if (-not (Test-Path "$out\BimAiAssistant.dll")) {
-            Write-Error "BimAiAssistant.dll not found in $out"
-            exit 1
-          }
 
           New-Item -ItemType Directory -Path $staging | Out-Null
 
