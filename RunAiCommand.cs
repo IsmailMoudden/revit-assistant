@@ -17,8 +17,8 @@ namespace BimAiAssistant
             UIApplication uiApp = commandData.Application;
             Document doc = uiApp.ActiveUIDocument.Document;
 
-            // 1. Prompt user for instruction
-            string instruction = InputDialog.Show("BIM AI Assistant", "Enter your instruction:");
+            // 1. Show dialog — returns null if user cancels
+            string instruction = InputDialog.Show();
             if (instruction == null)
                 return Result.Cancelled;
 
@@ -40,11 +40,10 @@ namespace BimAiAssistant
                 return Result.Failed;
             }
 
-            // 3. Dispatch action into a Revit transaction
+            // 3. Execute inside a Revit transaction
             using (var tx = new Transaction(doc, $"BIM AI — {response.Action.ActionType}"))
             {
                 tx.Start();
-
                 try
                 {
                     ActionDispatcher.Execute(doc, uiApp, response.Action);
@@ -58,8 +57,26 @@ namespace BimAiAssistant
                 }
             }
 
-            TaskDialog.Show("BIM AI", $"Action \"{response.Action.ActionType}\" executed successfully.");
+            // 4. Record in session history and confirm
+            InputDialog.RecordAction(instruction, response.Action.ActionType);
+
+            TaskDialog.Show(
+                "BIM AI — Done",
+                $"{ActionLabel(response.Action.ActionType)} executed successfully.\n\nInstruction: {instruction}"
+            );
+
             return Result.Succeeded;
+        }
+
+        private static string ActionLabel(string actionType)
+        {
+            switch (actionType)
+            {
+                case "create_wall":  return "Wall created";
+                case "add_window":   return "Window(s) added";
+                case "add_door":     return "Door(s) added";
+                default:             return $"Action \"{actionType}\" executed";
+            }
         }
     }
 }
