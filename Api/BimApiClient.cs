@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -14,29 +13,13 @@ namespace BimAiAssistant.Api
         private const int    TimeoutMs = 30_000;
 
         /// <summary>
-        /// First call: send instruction + optional Revit context.
+        /// Single entry point for all calls.
+        /// The caller builds the BimRequest (with or without answers/history).
         /// </summary>
-        public static ActionResponse GenerateAction(string instruction, RevitContext context = null)
-        {
-            var payload = new { instruction, context };
-            return Post(payload);
-        }
-
-        /// <summary>
-        /// Follow-up call: send original instruction + user answers to clarification questions.
-        /// </summary>
-        public static ActionResponse SendAnswers(string instruction, Dictionary<string, object> answers)
-        {
-            var payload = new { instruction, answers };
-            return Post(payload);
-        }
-
-        // ── shared HTTP POST ──────────────────────────────────────────────────
-
-        private static ActionResponse Post(object payload)
+        public static ActionResponse Post(BimRequest request)
         {
             string url       = $"{BaseUrl}/api/v1/generate-action";
-            byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(request));
 
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
             req.Method        = "POST";
@@ -55,15 +38,14 @@ namespace BimAiAssistant.Api
             }
 
             string responseBody;
+            HttpStatusCode statusCode;
             try
             {
                 using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
                 using (StreamReader r = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
                 {
+                    statusCode   = resp.StatusCode;
                     responseBody = r.ReadToEnd();
-
-                    if (resp.StatusCode != HttpStatusCode.OK)
-                        throw new Exception($"Backend returned HTTP {(int)resp.StatusCode}:\n{responseBody}");
                 }
             }
             catch (WebException ex) when (ex.Status == WebExceptionStatus.Timeout)
@@ -73,7 +55,12 @@ namespace BimAiAssistant.Api
             catch (WebException ex) when (ex.Response is HttpWebResponse errResp)
             {
                 using (StreamReader r = new StreamReader(errResp.GetResponseStream(), Encoding.UTF8))
-                    throw new Exception($"Backend returned HTTP {(int)errResp.StatusCode}:\n{r.ReadToEnd()}");
+                {
+                    string body = r.ReadToEnd();
+                    if (errResp.StatusCode == HttpStatusCode.UnprocessableEntity) // 422
+                        throw new Exception($"Invalid instruction (HTTP 422):\n{body}");
+                    throw new Exception($"Backend returned HTTP {(int)errResp.StatusCode}:\n{body}");
+                }
             }
 
             try

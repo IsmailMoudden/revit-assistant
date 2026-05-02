@@ -16,7 +16,12 @@ namespace BimAiAssistant
     [Regeneration(RegenerationOption.Manual)]
     public class RunAiCommand : IExternalCommand
     {
-        private const int MaxClarificationRounds = 5; // safety cap — prevents infinite loops
+        private const int MaxClarificationRounds = 5;
+
+        // Session history — stateless backend, plugin owns the conversation
+        // Persists for the lifetime of the Revit session; cleared by "Clear" in the dialog
+        private static readonly List<ConversationMessage> _sessionHistory =
+            new List<ConversationMessage>();
 
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -24,24 +29,23 @@ namespace BimAiAssistant
             UIDocument    uiDoc = uiApp.ActiveUIDocument;
             Document      doc   = uiDoc.Document;
 
-            // 1. Collect Revit context
-            RevitContext context = BuildContext(uiDoc, doc);
+            string selectedLevel = ResolveActiveLevel(uiDoc, doc);
 
-            // 2. Get instruction from user
             string instruction = InputDialog.Show();
             if (instruction == null)
                 return Result.Cancelled;
 
-            // 3. Clarification loop
-            ActionResponse response = RunClarificationLoop(instruction, context, out bool cancelled);
+            ActionResponse response = RunClarificationLoop(
+                instruction, selectedLevel, out bool cancelled);
 
-            if (cancelled)
-                return Result.Cancelled;
+            if (cancelled) return Result.Cancelled;
+            if (response  == null) return Result.Failed;
 
-            if (response == null)
-                return Result.Failed;
+            // Append to session history AFTER a successful round-trip
+            _sessionHistory.Add(new ConversationMessage { Role = "user",      Content = instruction });
+            _sessionHistory.Add(new ConversationMessage { Role = "assistant", Content = response.RawLlmOutput ?? "" });
 
-            // 4. Execute all actions in one transaction
+            // Execute all actions in one atomic transaction
             int executed = 0;
             using (var tx = new Transaction(doc, $"BIM AI — {response.Actions.Count} action(s)"))
             {
@@ -60,7 +64,6 @@ namespace BimAiAssistant
                 }
             }
 
-            // 5. Summary
             string summary = BuildSummary(response);
             InputDialog.RecordAction(instruction, summary);
 
@@ -72,23 +75,22 @@ namespace BimAiAssistant
 
         // ── Clarification loop ────────────────────────────────────────────────
 
-        /// <summary>
-        /// Sends the instruction, handles needs_clarification responses by asking the user,
-        /// then re-sends with answers until status == "ok" or the user cancels.
-        /// Returns null (and sets cancelled=false) on network/parse error.
-        /// </summary>
-        private static ActionResponse RunClarificationLoop(
-            string instruction, RevitContext context, out bool cancelled)
+        private ActionResponse RunClarificationLoop(
+            string instruction, string selectedLevel, out bool cancelled)
         {
             cancelled = false;
 
-            ActionResponse response;
-
-            // First call
-            try
+            // First call — no answers yet
+            var request = new BimRequest
             {
-                response = BimApiClient.GenerateAction(instruction, context);
-            }
+                Instruction   = instruction,
+                SelectedLevel = selectedLevel,
+                Answers       = null,
+                History       = new List<ConversationMessage>(_sessionHistory)
+            };
+
+            ActionResponse response;
+            try { response = BimApiClient.Post(request); }
             catch (Exception ex)
             {
                 TaskDialog.Show("BIM AI — Network Error", ex.Message);
@@ -97,8 +99,7 @@ namespace BimAiAssistant
 
             for (int round = 0; round < MaxClarificationRounds; round++)
             {
-                // ── status == "ok" ────────────────────────────────────────────
-                if (response.Status == "ok" || IsDirectResponse(response))
+                if (response.Status == "ok")
                 {
                     if (response.Actions == null || response.Actions.Count == 0)
                     {
@@ -110,39 +111,36 @@ namespace BimAiAssistant
                     return response;
                 }
 
-                // ── status == "needs_clarification" ───────────────────────────
                 if (response.Status == "needs_clarification")
                 {
                     if (response.Questions == null || response.Questions.Count == 0)
                     {
                         TaskDialog.Show("BIM AI — Error",
-                            "Backend requested clarification but sent no questions.");
+                            "Backend requested clarification but provided no questions.");
                         return null;
                     }
 
                     Dictionary<string, object> answers = ClarificationDialog.Show(response.Questions);
+                    if (answers == null) { cancelled = true; return null; }
 
-                    if (answers == null)
+                    request = new BimRequest
                     {
-                        cancelled = true;
-                        return null;
-                    }
+                        Instruction   = instruction,
+                        SelectedLevel = selectedLevel,
+                        Answers       = answers,
+                        History       = new List<ConversationMessage>(_sessionHistory)
+                    };
 
-                    // Re-send with answers
-                    try
-                    {
-                        response = BimApiClient.SendAnswers(instruction, answers);
-                    }
+                    try { response = BimApiClient.Post(request); }
                     catch (Exception ex)
                     {
                         TaskDialog.Show("BIM AI — Network Error", ex.Message);
                         return null;
                     }
-
                     continue;
                 }
 
-                // ── unknown status ────────────────────────────────────────────
+                // Unknown status
                 TaskDialog.Show("BIM AI — Error",
                     $"Unexpected backend status: \"{response.Status}\".\n\n" +
                     (response.RawLlmOutput ?? "(no raw output)"));
@@ -157,58 +155,47 @@ namespace BimAiAssistant
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        // Backwards compatibility: if backend doesn't send "status" yet but has "actions"
-        private static bool IsDirectResponse(ActionResponse r) =>
-            string.IsNullOrEmpty(r.Status) && r.Actions != null && r.Actions.Count > 0;
+        /// <summary>Clears the in-memory conversation history.</summary>
+        public static void ClearHistory() => _sessionHistory.Clear();
 
-        private static RevitContext BuildContext(UIDocument uiDoc, Document doc)
+        private static string ResolveActiveLevel(UIDocument uiDoc, Document doc)
         {
-            string levelName = null;
             try
             {
-                var view = uiDoc.ActiveView;
-                if (view?.GenLevel != null)
-                    levelName = view.GenLevel.Name;
-
-                if (levelName == null)
-                    levelName = new FilteredElementCollector(doc)
-                        .OfClass(typeof(Level))
-                        .Cast<Level>()
-                        .OrderBy(l => l.Elevation)
-                        .FirstOrDefault()?.Name;
+                if (uiDoc.ActiveView?.GenLevel != null)
+                    return uiDoc.ActiveView.GenLevel.Name;
             }
             catch { }
 
-            int selectionCount = 0;
-            try { selectionCount = uiDoc.Selection.GetElementIds().Count; }
-            catch { }
-
-            return new RevitContext
+            try
             {
-                SelectedLevel  = levelName,
-                SelectionCount = selectionCount
-            };
+                return new FilteredElementCollector(doc)
+                    .OfClass(typeof(Level))
+                    .Cast<Level>()
+                    .OrderBy(l => l.Elevation)
+                    .FirstOrDefault()?.Name ?? "Level 1";
+            }
+            catch { return "Level 1"; }
         }
 
         private static string BuildSummary(ActionResponse response)
         {
-            var sb     = new StringBuilder();
-            var groups = response.Actions.GroupBy(a => a.ActionType).OrderBy(g => g.Key);
-            foreach (var g in groups)
+            var sb = new StringBuilder();
+            foreach (var g in response.Actions.GroupBy(a => a.ActionType).OrderBy(g => g.Key))
                 sb.AppendLine($"• {ActionLabel(g.Key)} × {g.Count()}");
             return sb.ToString().TrimEnd();
         }
 
-        private static string ActionLabel(string actionType)
+        private static string ActionLabel(string t)
         {
-            switch (actionType)
+            switch (t)
             {
                 case "create_wall":   return "Wall";
                 case "create_column": return "Column";
                 case "create_beam":   return "Beam";
                 case "add_window":    return "Window";
                 case "add_door":      return "Door";
-                default:              return actionType;
+                default:              return t;
             }
         }
     }

@@ -117,25 +117,44 @@ namespace BimAiAssistant.UI
                 // ── History label ─────────────────────────────────────────────
                 var historyTitle = new Label
                 {
-                    Text      = "Last actions this session:",
+                    Text      = "Conversation history:",
                     Left      = 16,
                     Top       = 118,
-                    Width     = 472,
+                    Width     = 360,
                     Font      = new Font("Segoe UI", 8f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(100, 100, 100)
                 };
 
+                var clearBtn = new Button
+                {
+                    Text      = "Clear",
+                    Left      = 388,
+                    Top       = 114,
+                    Width     = 100,
+                    Height    = 22,
+                    FlatStyle = FlatStyle.Flat,
+                    Font      = new Font("Segoe UI", 7.5f),
+                    Cursor    = Cursors.Hand
+                };
+
                 var historyBox = new ListBox
                 {
-                    Left            = 16,
-                    Top             = 136,
-                    Width           = 472,
-                    Height          = 128,
-                    Font            = new Font("Segoe UI", 8.5f),
-                    BorderStyle     = BorderStyle.FixedSingle,
-                    SelectionMode   = SelectionMode.None
+                    Left          = 16,
+                    Top           = 140,
+                    Width         = 472,
+                    Height        = 120,
+                    Font          = new Font("Segoe UI", 8.5f),
+                    BorderStyle   = BorderStyle.FixedSingle,
+                    SelectionMode = SelectionMode.None
                 };
                 RefreshHistory(historyBox);
+
+                clearBtn.Click += (s, e) =>
+                {
+                    RunAiCommand.ClearHistory();
+                    _history.Clear();
+                    RefreshHistory(historyBox);
+                };
 
                 // ── Run click handler ─────────────────────────────────────────
                 runButton.Click += (s, e) =>
@@ -166,7 +185,7 @@ namespace BimAiAssistant.UI
                 form.Controls.AddRange(new Control[]
                 {
                     titleLabel, textBox, runButton, cancelButton,
-                    statusLabel, historyTitle, historyBox
+                    statusLabel, historyTitle, clearBtn, historyBox
                 });
 
                 form.AcceptButton = runButton;

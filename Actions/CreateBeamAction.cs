@@ -10,9 +10,11 @@ namespace BimAiAssistant.Actions
 
         public static void Execute(Document doc, ActionPayload action)
         {
+            string familyHint = action.Section ?? action.FamilyName;
+            string typeHint   = action.Section ?? action.TypeName;
+
             FamilySymbol symbol = FamilySymbolHelper.Resolve(
-                doc, action.FamilyName, action.TypeName,
-                BuiltInCategory.OST_StructuralFraming);
+                doc, familyHint, typeHint, BuiltInCategory.OST_StructuralFraming);
 
             if (!symbol.IsActive)
                 symbol.Activate();
@@ -21,6 +23,8 @@ namespace BimAiAssistant.Actions
             if (levelFallback)
                 RevitLogger.Warn($"Beam: level \"{action.Level}\" not found — using \"{level.Name}\".");
 
+            // Backend sends absolute z in meters — convert directly, do NOT add level elevation
+            // (the payload z already encodes the elevation, e.g. z=3.0 means 3 m above origin)
             double sx = (action.Start?.X ?? 0) * MtoFt;
             double sy = (action.Start?.Y ?? 0) * MtoFt;
             double sz = (action.Start?.Z ?? 0) * MtoFt;
@@ -28,12 +32,7 @@ namespace BimAiAssistant.Actions
             double ey = (action.End?.Y   ?? 0) * MtoFt;
             double ez = (action.End?.Z   ?? 0) * MtoFt;
 
-            // Beams live at the level elevation; z offset from the payload lifts them above it
-            double elevation = level.Elevation;
-            var startPt = new XYZ(sx, sy, elevation + sz);
-            var endPt   = new XYZ(ex, ey, elevation + ez);
-
-            var line = Line.CreateBound(startPt, endPt);
+            var line = Line.CreateBound(new XYZ(sx, sy, sz), new XYZ(ex, ey, ez));
 
             doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
         }
