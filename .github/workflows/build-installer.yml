@@ -3,7 +3,7 @@ name: Build Installer ZIP
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,38 +16,49 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'   # SDK used to build net48 target
+          dotnet-version: '8.0.x'
 
-      - name: Restore packages
+      - name: Restore
         run: dotnet restore BimAiAssistant.csproj
 
-      - name: Build (Release x64)
+      - name: Build Release x64
         run: dotnet build BimAiAssistant.csproj -c Release -p:Platform=x64 --no-restore
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $out = "bin\Release\net48"
+          Write-Host "Build output contents:"
+          Get-ChildItem $out -ErrorAction SilentlyContinue | Select-Object Name
+          if (-not (Test-Path "$out\BimAiAssistant.dll")) {
+            Write-Error "BimAiAssistant.dll not found in $out"
+            exit 1
+          }
 
       - name: Assemble BIMAI installer folder
         shell: pwsh
         run: |
+          $out     = "bin\Release\net48"
           $staging = "$env:RUNNER_TEMP\BIMAI"
+
           New-Item -ItemType Directory -Path $staging | Out-Null
 
-          # DLLs from build output
-          Copy-Item "bin\Release\net48\BimAiAssistant.dll"  $staging
-          Copy-Item "bin\Release\net48\Newtonsoft.Json.dll" $staging
+          Copy-Item "$out\BimAiAssistant.dll"   $staging
+          Copy-Item "$out\Newtonsoft.Json.dll"  $staging
+          Copy-Item "Installer\install.bat"     $staging
+          Copy-Item "Installer\uninstall.bat"   $staging
+          Copy-Item "Installer\README.txt"      $staging
 
-          # Installer scripts and README
-          Copy-Item "Installer\install.bat"   $staging
-          Copy-Item "Installer\uninstall.bat" $staging
-          Copy-Item "Installer\README.txt"    $staging
+          Write-Host "Staged files:"
+          Get-ChildItem $staging | Select-Object Name
 
-          # Wrap in a BIMAI sub-folder so the ZIP extracts cleanly
+          # Wrap in BIMAI\ so the ZIP extracts to a clean folder
           $wrapper = "$env:RUNNER_TEMP\pkg"
           New-Item -ItemType Directory -Path $wrapper | Out-Null
           Copy-Item $staging "$wrapper\BIMAI" -Recurse
 
-          Compress-Archive -Path "$wrapper\BIMAI" -DestinationPath "$env:RUNNER_TEMP\BIMAI_Installer.zip"
-
-          Write-Host "ZIP contents:"
-          Get-ChildItem $staging | Select-Object Name
+          Compress-Archive -Path "$wrapper\BIMAI" -DestinationPath "$env:RUNNER_TEMP\BIMAI_Installer.zip" -Force
+          Write-Host "ZIP created at $env:RUNNER_TEMP\BIMAI_Installer.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

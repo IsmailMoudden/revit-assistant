@@ -68,7 +68,7 @@ namespace BimAiAssistant.Actions
 
             TaskDialog.Show("BIM AI — Wall Selection",
                 (ambiguous ? "Multiple walls are close — " : "") +
-                $"wall_id was null. Auto-selected wall Id={nearest.Id.IntegerValue} " +
+                $"wall_id was null. Auto-selected wall Id={nearest.Id.Value} " +
                 $"(distance {dist / MtoFt:F2} m).");
 
             return nearest;
