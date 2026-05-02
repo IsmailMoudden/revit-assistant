@@ -28,7 +28,7 @@ namespace BimAiAssistant.Api
             {
                 response = _http.PostAsync(url, content).GetAwaiter().GetResult();
             }
-            catch (TaskCanceledException)
+            catch (System.Threading.Tasks.TaskCanceledException)
             {
                 throw new Exception("Request timed out after 30 seconds. Check that the backend is running.");
             }

@@ -42,7 +42,7 @@ namespace BimAiAssistant.Actions
             if (!string.IsNullOrWhiteSpace(wallId) &&
                 int.TryParse(wallId, out int id))
             {
-                var element = doc.GetElement(new ElementId(id));
+                var element = doc.GetElement(new ElementId((long)id));
                 if (element is Wall wall) return wall;
 
                 throw new System.Exception(

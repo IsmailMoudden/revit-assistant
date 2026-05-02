@@ -3,6 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using BimAiAssistant.Actions;
 using BimAiAssistant.Api;
+using BimAiAssistant.Models;
 using BimAiAssistant.UI;
 
 namespace BimAiAssistant
