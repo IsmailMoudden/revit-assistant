@@ -13,16 +13,19 @@ def _strip_markdown_fences(text: str) -> str:
     """Strip ```json ... ``` fences that some models add despite json_object mode."""
     text = text.strip()
     if text.startswith("```"):
-        # drop first line (```json or ```)
         text = text.split("\n", 1)[-1]
-        # drop closing fence — find last occurrence so embedded ``` don't break it
         if "```" in text:
             text = text[:text.rfind("```")]
     return text.strip()
 
 
+def _build_user_message(request: GenerateActionRequest) -> str:
+    context = json.dumps({"selected_level": request.selected_level})
+    return f"Context: {context}\n\nInstruction: {request.instruction}"
+
+
 def generate_bim_action(request: GenerateActionRequest) -> GenerateActionResponse:
-    raw = call_llm(SYSTEM_PROMPT, request.instruction)
+    raw = call_llm(SYSTEM_PROMPT, _build_user_message(request))
     clean = _strip_markdown_fences(raw)
 
     try:
@@ -30,13 +33,18 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
     except json.JSONDecodeError as e:
         raise ValueError(f"LLM returned invalid JSON: {e}\nRaw output: {raw}")
 
-    try:
-        action = _action_adapter.validate_python(parsed)
-    except ValidationError as e:
-        raise ValueError(f"LLM output failed schema validation:\n{e}\nRaw output: {raw}")
+    if "actions" not in parsed:
+        raise ValueError(f"LLM response missing 'actions' key.\nRaw output: {raw}")
+
+    actions = []
+    for i, item in enumerate(parsed["actions"]):
+        try:
+            actions.append(_action_adapter.validate_python(item))
+        except ValidationError as e:
+            raise ValueError(f"Action #{i} failed schema validation:\n{e}\nItem: {item}")
 
     return GenerateActionResponse(
         instruction=request.instruction,
-        action=action,
+        actions=actions,
         raw_llm_output=raw,
     )

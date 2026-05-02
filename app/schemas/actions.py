@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 
 # All dimensions are in METERS. The Revit plugin converts to feet (× 3.28084).
 # Validators below catch accidental foot values slipping through from the LLM.
-_meter = Field(gt=0, le=500)
 
 
 class Position(BaseModel):
@@ -11,6 +10,8 @@ class Position(BaseModel):
     y: float
     z: float = 0.0
 
+
+# ── Architectural ──────────────────────────────────────────────────────────────
 
 class CreateWallAction(BaseModel):
     action: Literal["create_wall"]
@@ -39,7 +40,33 @@ class AddDoorAction(BaseModel):
     height: float = Field(default=2.1, gt=0, le=10)
 
 
+# ── Structural ─────────────────────────────────────────────────────────────────
+
+class CreateColumnAction(BaseModel):
+    action: Literal["create_column"]
+    position: Position
+    height: float = Field(default=3.0, gt=0, le=500)
+    section: str = "HEA200"
+    level: str = "Level 1"
+
+
+class CreateBeamAction(BaseModel):
+    action: Literal["create_beam"]
+    start: Position
+    end: Position
+    section: str = "IPE300"
+    level: str = "Level 1"
+
+
+# ── Discriminated union — add new actions here ─────────────────────────────────
+
 BIMAction = Annotated[
-    Union[CreateWallAction, AddWindowAction, AddDoorAction],
+    Union[
+        CreateWallAction,
+        AddWindowAction,
+        AddDoorAction,
+        CreateColumnAction,
+        CreateBeamAction,
+    ],
     Field(discriminator="action"),
 ]
