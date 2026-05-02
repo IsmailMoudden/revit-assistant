@@ -8,9 +8,28 @@ namespace BimAiAssistant.Models
 
     public class ActionResponse
     {
-        [JsonProperty("instruction")]    public string             Instruction  { get; set; }
+        // "ok" | "needs_clarification"
+        [JsonProperty("status")]         public string             Status       { get; set; }
+
+        // status == "ok"
         [JsonProperty("actions")]        public List<ActionPayload> Actions     { get; set; }
+
+        // status == "needs_clarification"
+        [JsonProperty("questions")]      public List<ClarificationQuestion> Questions { get; set; }
+
+        [JsonProperty("instruction")]    public string             Instruction  { get; set; }
         [JsonProperty("raw_llm_output")] public string             RawLlmOutput { get; set; }
+    }
+
+    // ── Clarification question from backend ───────────────────────────────────
+
+    public class ClarificationQuestion
+    {
+        [JsonProperty("id")]       public string Id       { get; set; }  // key used in answers dict
+        [JsonProperty("question")] public string Question { get; set; }
+        [JsonProperty("type")]     public string Type     { get; set; }  // "number" | "text" | "choice"
+        [JsonProperty("default")]  public JToken Default  { get; set; }  // any JSON value
+        [JsonProperty("choices")]  public List<string> Choices { get; set; } // for type == "choice"
     }
 
     // ── Shared geometry ───────────────────────────────────────────────────────
@@ -23,43 +42,29 @@ namespace BimAiAssistant.Models
     }
 
     // ── Single action payload ─────────────────────────────────────────────────
-    // One flat class covers all action types.
-    // Fields unused by a given action type are null and ignored by the handler.
 
     public class ActionPayload
     {
         [JsonProperty("action")] public string ActionType { get; set; }
 
-        // ── create_wall ───────────────────────────────────────────────────────
+        // create_wall
         [JsonProperty("start")]     public Position Start     { get; set; }
         [JsonProperty("end")]       public Position End       { get; set; }
         [JsonProperty("height")]    public double?  Height    { get; set; }
         [JsonProperty("thickness")] public double?  Thickness { get; set; }
         [JsonProperty("level")]     public string   Level     { get; set; }
 
-        // ── add_window / add_door ─────────────────────────────────────────────
+        // add_window / add_door
         [JsonProperty("wall_id")]  public string   WallId   { get; set; }
         [JsonProperty("position")] public Position Position { get; set; }
         [JsonProperty("width")]    public double?  Width    { get; set; }
         [JsonProperty("count")]    public int?     Count    { get; set; }
         [JsonProperty("spacing")]  public double?  Spacing  { get; set; }
 
-        // ── create_column ─────────────────────────────────────────────────────
-        // position   → base point (x, y, z) in meters
-        // height     → column height in meters       (reuses Height field)
-        // level      → host level name               (reuses Level field)
-        // family_name / type_name → structural column family
-
-        // ── create_beam ───────────────────────────────────────────────────────
-        // start / end → beam endpoints in meters     (reuses Start / End fields)
-        // level       → host level name              (reuses Level field)
-        // family_name / type_name → structural framing family
-
-        // ── shared: family resolution (column + beam + window + door) ─────────
+        // create_column / create_beam (reuse start/end/height/level above)
         [JsonProperty("family_name")] public string FamilyName { get; set; }
         [JsonProperty("type_name")]   public string TypeName   { get; set; }
 
-        // Absorbs unknown future fields without breaking deserialization
         [JsonExtensionData]
         public Dictionary<string, JToken> Extras { get; set; }
     }
@@ -68,7 +73,7 @@ namespace BimAiAssistant.Models
 
     public class RevitContext
     {
-        [JsonProperty("selected_level")]   public string SelectedLevel   { get; set; }
-        [JsonProperty("selection_count")]  public int    SelectionCount  { get; set; }
+        [JsonProperty("selected_level")]  public string SelectedLevel  { get; set; }
+        [JsonProperty("selection_count")] public int    SelectionCount { get; set; }
     }
 }

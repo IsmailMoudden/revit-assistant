@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -12,18 +13,29 @@ namespace BimAiAssistant.Api
         private const string BaseUrl   = "https://autodesk-revit-backend.up.railway.app";
         private const int    TimeoutMs = 30_000;
 
-        /// <param name="instruction">Natural language instruction from the user.</param>
-        /// <param name="context">Current Revit context (active level, selection). Can be null.</param>
+        /// <summary>
+        /// First call: send instruction + optional Revit context.
+        /// </summary>
         public static ActionResponse GenerateAction(string instruction, RevitContext context = null)
         {
-            string url = $"{BaseUrl}/api/v1/generate-action";
+            var payload = new { instruction, context };
+            return Post(payload);
+        }
 
-            var payload = new
-            {
-                instruction,
-                context   // backend ignores it if null or if field is unknown — safe
-            };
+        /// <summary>
+        /// Follow-up call: send original instruction + user answers to clarification questions.
+        /// </summary>
+        public static ActionResponse SendAnswers(string instruction, Dictionary<string, object> answers)
+        {
+            var payload = new { instruction, answers };
+            return Post(payload);
+        }
 
+        // ── shared HTTP POST ──────────────────────────────────────────────────
+
+        private static ActionResponse Post(object payload)
+        {
+            string url       = $"{BaseUrl}/api/v1/generate-action";
             byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
 
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
