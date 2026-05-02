@@ -57,7 +57,7 @@ namespace BimAiAssistant.Api
                 using (StreamReader r = new StreamReader(errResp.GetResponseStream(), Encoding.UTF8))
                 {
                     string body = r.ReadToEnd();
-                    if (errResp.StatusCode == HttpStatusCode.UnprocessableEntity) // 422
+                    if ((int)errResp.StatusCode == 422)
                         throw new Exception($"Invalid instruction (HTTP 422):\n{body}");
                     throw new Exception($"Backend returned HTTP {(int)errResp.StatusCode}:\n{body}");
                 }
