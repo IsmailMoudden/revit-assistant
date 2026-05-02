@@ -7,17 +7,24 @@ using Newtonsoft.Json;
 
 namespace BimAiAssistant.Api
 {
-    // Uses HttpWebRequest (always available in net48 — no extra assembly reference needed)
     public static class BimApiClient
     {
-        private const string BaseUrl    = "https://autodesk-revit-backend.up.railway.app";
-        private const int    TimeoutMs  = 30_000;
+        private const string BaseUrl   = "https://autodesk-revit-backend.up.railway.app";
+        private const int    TimeoutMs = 30_000;
 
-        public static ActionResponse GenerateAction(string instruction)
+        /// <param name="instruction">Natural language instruction from the user.</param>
+        /// <param name="context">Current Revit context (active level, selection). Can be null.</param>
+        public static ActionResponse GenerateAction(string instruction, RevitContext context = null)
         {
-            string url  = $"{BaseUrl}/api/v1/generate-action";
-            string body = JsonConvert.SerializeObject(new { instruction });
-            byte[] bodyBytes = Encoding.UTF8.GetBytes(body);
+            string url = $"{BaseUrl}/api/v1/generate-action";
+
+            var payload = new
+            {
+                instruction,
+                context   // backend ignores it if null or if field is unknown — safe
+            };
+
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
 
             HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
             req.Method        = "POST";
@@ -39,8 +46,7 @@ namespace BimAiAssistant.Api
             try
             {
                 using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-                using (Stream s = resp.GetResponseStream())
-                using (StreamReader r = new StreamReader(s, Encoding.UTF8))
+                using (StreamReader r = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
                 {
                     responseBody = r.ReadToEnd();
 
@@ -54,8 +60,7 @@ namespace BimAiAssistant.Api
             }
             catch (WebException ex) when (ex.Response is HttpWebResponse errResp)
             {
-                using (Stream s = errResp.GetResponseStream())
-                using (StreamReader r = new StreamReader(s, Encoding.UTF8))
+                using (StreamReader r = new StreamReader(errResp.GetResponseStream(), Encoding.UTF8))
                     throw new Exception($"Backend returned HTTP {(int)errResp.StatusCode}:\n{r.ReadToEnd()}");
             }
 
