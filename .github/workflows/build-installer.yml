@@ -1,0 +1,57 @@
+name: Build Installer ZIP
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'   # SDK used to build net48 target
+
+      - name: Restore packages
+        run: dotnet restore BimAiAssistant.csproj
+
+      - name: Build (Release x64)
+        run: dotnet build BimAiAssistant.csproj -c Release -p:Platform=x64 --no-restore
+
+      - name: Assemble BIMAI installer folder
+        shell: pwsh
+        run: |
+          $staging = "$env:RUNNER_TEMP\BIMAI"
+          New-Item -ItemType Directory -Path $staging | Out-Null
+
+          # DLLs from build output
+          Copy-Item "bin\Release\net48\BimAiAssistant.dll"  $staging
+          Copy-Item "bin\Release\net48\Newtonsoft.Json.dll" $staging
+
+          # Installer scripts and README
+          Copy-Item "Installer\install.bat"   $staging
+          Copy-Item "Installer\uninstall.bat" $staging
+          Copy-Item "Installer\README.txt"    $staging
+
+          # Wrap in a BIMAI sub-folder so the ZIP extracts cleanly
+          $wrapper = "$env:RUNNER_TEMP\pkg"
+          New-Item -ItemType Directory -Path $wrapper | Out-Null
+          Copy-Item $staging "$wrapper\BIMAI" -Recurse
+
+          Compress-Archive -Path "$wrapper\BIMAI" -DestinationPath "$env:RUNNER_TEMP\BIMAI_Installer.zip"
+
+          Write-Host "ZIP contents:"
+          Get-ChildItem $staging | Select-Object Name
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIMAI_Installer
+          path: ${{ runner.temp }}\BIMAI_Installer.zip
+          retention-days: 30
