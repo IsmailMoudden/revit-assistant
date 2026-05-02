@@ -3,10 +3,16 @@ from pydantic import BaseModel, Field, model_validator
 from app.schemas.actions import BIMAction
 
 
+class ConversationMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class GenerateActionRequest(BaseModel):
     instruction: str
     selected_level: str = "Level 1"
-    answers: dict[str, Any] | None = None  # user answers to clarification questions
+    answers: dict[str, Any] | None = None
+    history: list[ConversationMessage] = []  # client owns and sends this each time
 
 
 class Question(BaseModel):

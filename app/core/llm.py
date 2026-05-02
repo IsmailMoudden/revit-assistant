@@ -8,14 +8,11 @@ client = OpenAI(
 )
 
 
-def call_llm(system_prompt: str, user_message: str) -> str:
+def call_llm(system_prompt: str, messages: list[dict]) -> str:
     response = client.chat.completions.create(
         model=settings.openrouter_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
+        messages=[{"role": "system", "content": system_prompt}, *messages],
         response_format={"type": "json_object"},
-        temperature=0,  # deterministic — same input always produces same output
+        temperature=0,
     )
     return response.choices[0].message.content

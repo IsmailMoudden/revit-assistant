@@ -19,16 +19,19 @@ def _strip_markdown_fences(text: str) -> str:
     return text.strip()
 
 
-def _build_user_message(request: GenerateActionRequest) -> str:
+def _build_messages(request: GenerateActionRequest) -> list[dict]:
+    # inject history as-is, then append the new user turn
+    messages = [{"role": m.role, "content": m.content} for m in request.history]
     parts = [f"Context: {json.dumps({'selected_level': request.selected_level})}"]
     if request.answers:
         parts.append(f"Answers to previous questions: {json.dumps(request.answers)}")
     parts.append(f"Instruction: {request.instruction}")
-    return "\n\n".join(parts)
+    messages.append({"role": "user", "content": "\n\n".join(parts)})
+    return messages
 
 
 def generate_bim_action(request: GenerateActionRequest) -> GenerateActionResponse:
-    raw = call_llm(SYSTEM_PROMPT, _build_user_message(request))
+    raw = call_llm(SYSTEM_PROMPT, _build_messages(request))
     clean = _strip_markdown_fences(raw)
 
     try:
