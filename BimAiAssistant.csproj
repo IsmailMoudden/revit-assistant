@@ -11,10 +11,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Revit API via NuGet — Private=False means they are NOT copied to output (Revit provides them at runtime) -->
+    <!-- Revit API via NuGet — ExcludeAssets=runtime: DLLs not copied to output, Revit provides them at runtime -->
     <PackageReference Include="Nice3point.Revit.Api.RevitAPI"   Version="2024.*" ExcludeAssets="runtime" />
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2024.*" ExcludeAssets="runtime" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- System.Net.Http is not auto-included in net48 class libraries -->
+    <Reference Include="System.Net.Http" />
   </ItemGroup>
 
 </Project>
