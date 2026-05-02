@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: BimAiAssistant   # all steps run inside the plugin folder
 
     steps:
       - name: Checkout
@@ -37,7 +34,7 @@ jobs:
           Get-ChildItem $out | Select-Object Name
 
           if (-not (Test-Path "$out\BimAiAssistant.dll")) {
-            Write-Error "BimAiAssistant.dll not found — build may have failed silently."
+            Write-Error "BimAiAssistant.dll not found in $out"
             exit 1
           }
 
