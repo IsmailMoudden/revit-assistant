@@ -20,11 +20,21 @@ def _strip_markdown_fences(text: str) -> str:
 
 
 def _build_messages(request: GenerateActionRequest) -> list[dict]:
-    # inject history as-is, then append the new user turn
     messages = [{"role": m.role, "content": m.content} for m in request.history]
+
     parts = [f"Context: {json.dumps({'selected_level': request.selected_level})}"]
+
+    ctx = request.bim_context
+    if ctx.existing_elements or ctx.levels or ctx.selected_element_ids:
+        parts.append(f"BIM model state: {ctx.model_dump_json()}")
+
+    if request.execution_results:
+        results = [r.model_dump() for r in request.execution_results]
+        parts.append(f"Results from last execution: {json.dumps(results)}")
+
     if request.answers:
         parts.append(f"Answers to previous questions: {json.dumps(request.answers)}")
+
     parts.append(f"Instruction: {request.instruction}")
     messages.append({"role": "user", "content": "\n\n".join(parts)})
     return messages

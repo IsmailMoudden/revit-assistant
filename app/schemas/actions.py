@@ -58,6 +58,19 @@ class CreateBeamAction(BaseModel):
     level: str = "Level 1"
 
 
+# ── Edit actions ───────────────────────────────────────────────────────────────
+
+class DeleteElementAction(BaseModel):
+    action: Literal["delete_element"]
+    element_id: str   # Revit element ID from bim_context
+
+
+class MoveElementAction(BaseModel):
+    action: Literal["move_element"]
+    element_id: str
+    delta: Position   # relative displacement in meters
+
+
 # ── Discriminated union — add new actions here ─────────────────────────────────
 
 BIMAction = Annotated[
@@ -67,6 +80,8 @@ BIMAction = Annotated[
         AddDoorAction,
         CreateColumnAction,
         CreateBeamAction,
+        DeleteElementAction,
+        MoveElementAction,
     ],
     Field(discriminator="action"),
 ]
