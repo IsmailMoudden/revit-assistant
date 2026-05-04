@@ -8,10 +8,9 @@ namespace BimAiAssistant.UI
 {
     public static class ClarificationDialog
     {
-        private const int Pad    = 28;  // horizontal margin inside scroll panel
-        private const int LblH  = 20;  // question label height
+        private const int Pad   = 28;  // horizontal margin
         private const int InpH  = 32;  // input control height
-        private const int Gap   = 28;  // vertical gap between questions
+        private const int Gap   = 32;  // vertical gap between questions
 
         public static Dictionary<string, object> Show(List<ClarificationQuestion> questions)
         {
@@ -21,69 +20,62 @@ namespace BimAiAssistant.UI
             {
                 // ── Window ────────────────────────────────────────────────────
                 form.Text            = "BIM AI Assistant";
-                form.MinimumSize     = new Size(480, 360);
-                form.Size            = new Size(560, 480);
+                form.MinimumSize     = new Size(480, 380);
+                form.Size            = new Size(560, 500);
                 form.FormBorderStyle = FormBorderStyle.Sizable;
                 form.StartPosition   = FormStartPosition.CenterScreen;
                 form.MaximizeBox     = true;
                 form.MinimizeBox     = false;
                 form.BackColor       = Color.FromArgb(245, 246, 248);
 
-                // ── Dark header (Dock=Top, always visible) ────────────────────
+                // ── Dark header (Dock=Top) ────────────────────────────────────
                 var header = new Panel
                 {
                     Dock      = DockStyle.Top,
                     Height    = 56,
                     BackColor = Color.FromArgb(18, 18, 18)
                 };
-                var headerTitle = new Label
+                header.Controls.Add(new Label
                 {
                     Text      = "BIM AI Assistant",
                     Font      = new Font("Segoe UI", 13f, FontStyle.Bold),
                     ForeColor = Color.White,
-                    Left      = 20,
-                    Top       = 14,
-                    AutoSize  = true
-                };
-                var headerSub = new Label
+                    Left = 20, Top = 14, AutoSize = true
+                });
+                header.Controls.Add(new Label
                 {
                     Text      = "A few more details are needed",
                     Font      = new Font("Segoe UI", 8f),
                     ForeColor = Color.FromArgb(170, 170, 170),
-                    Left      = 22,
-                    Top       = 36,
-                    AutoSize  = true
-                };
-                header.Controls.Add(headerTitle);
-                header.Controls.Add(headerSub);
+                    Left = 22, Top = 36, AutoSize = true
+                });
 
-                // ── Footer panel (Dock=Bottom) — buttons always visible ───────
+                // ── Footer panel (Dock=Bottom) ────────────────────────────────
                 var footer = new Panel
                 {
                     Dock      = DockStyle.Bottom,
                     Height    = 68,
                     BackColor = Color.FromArgb(245, 246, 248)
                 };
-
-                var footerDivider = new Panel
+                footer.Controls.Add(new Panel
                 {
                     Dock      = DockStyle.Top,
                     Height    = 1,
                     BackColor = Color.FromArgb(220, 220, 220)
-                };
+                });
 
                 var cancelBtn = new Button
                 {
-                    Text      = "Cancel",
-                    Width     = 90,
-                    Height    = 36,
-                    Top       = 16,
-                    FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 9f),
-                    BackColor = Color.White,
-                    ForeColor = Color.FromArgb(60, 60, 60),
-                    Cursor    = Cursors.Hand,
-                    Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+                    Text         = "Cancel",
+                    Width        = 96,
+                    Height       = 36,
+                    Top          = 16,
+                    FlatStyle    = FlatStyle.Flat,
+                    Font         = new Font("Segoe UI", 9f),
+                    BackColor    = Color.White,
+                    ForeColor    = Color.FromArgb(60, 60, 60),
+                    Cursor       = Cursors.Hand,
+                    Anchor       = AnchorStyles.Top | AnchorStyles.Right,
                     DialogResult = DialogResult.Cancel
                 };
                 cancelBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
@@ -91,67 +83,66 @@ namespace BimAiAssistant.UI
 
                 var confirmBtn = new Button
                 {
-                    Text      = "✓  Confirm",
-                    Width     = 120,
-                    Height    = 36,
-                    Top       = 16,
-                    FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    BackColor = Color.FromArgb(18, 18, 18),
-                    ForeColor = Color.White,
-                    Cursor    = Cursors.Hand,
-                    Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+                    Text         = "Confirm",
+                    Width        = 110,
+                    Height       = 36,
+                    Top          = 16,
+                    FlatStyle    = FlatStyle.Flat,
+                    Font         = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    BackColor    = Color.FromArgb(18, 18, 18),
+                    ForeColor    = Color.White,
+                    Cursor       = Cursors.Hand,
+                    Anchor       = AnchorStyles.Top | AnchorStyles.Right,
                     DialogResult = DialogResult.OK
                 };
                 confirmBtn.FlatAppearance.BorderSize = 0;
 
-                // Right-align footer buttons, update on resize
                 footer.Resize += (s, e) =>
                 {
-                    confirmBtn.Left = footer.ClientSize.Width - Pad - 120;
-                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 120 - 8 - 90;
+                    confirmBtn.Left = footer.ClientSize.Width - Pad - 110;
+                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 110 - 10 - 96;
                 };
-
-                footer.Controls.Add(footerDivider);
                 footer.Controls.AddRange(new Control[] { cancelBtn, confirmBtn });
 
-                // ── Scroll panel (fills space between header and footer) ───────
+                // ── Scrollable body ───────────────────────────────────────────
                 var scroll = new Panel
                 {
-                    Dock          = DockStyle.Fill,
-                    AutoScroll    = true,
-                    BackColor     = Color.FromArgb(245, 246, 248),
-                    Padding       = new Padding(0)
+                    Dock       = DockStyle.Fill,
+                    AutoScroll = true,
+                    BackColor  = Color.FromArgb(245, 246, 248)
                 };
 
-                // Inner panel holds all question rows; wider than scroll so padding works
+                // inner holds question rows; resizes with scroll panel
                 var inner = new Panel
                 {
-                    AutoSize     = false,
-                    BackColor    = Color.FromArgb(245, 246, 248),
-                    Left         = 0,
-                    Top          = 0
+                    Left      = 0,
+                    Top       = 0,
+                    BackColor = Color.FromArgb(245, 246, 248)
                 };
 
-                // Build question rows inside inner
-                int y = 24; // top padding inside scroll area
+                int y = 28; // top padding
 
                 foreach (var q in questions)
                 {
-                    // Question label
+                    // Label — auto-height so long questions never get clipped
                     var lbl = new Label
                     {
                         Text      = q.Question,
                         Left      = Pad,
                         Top       = y,
-                        Height    = LblH,
-                        Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
-                        ForeColor = Color.FromArgb(50, 50, 50),
+                        Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(40, 40, 40),
                         AutoSize  = false,
-                        Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                        // Width set in resize handler; Height measured below
                     };
                     inner.Controls.Add(lbl);
-                    y += LblH + 8;
+
+                    // Measure label height for the current width so wrapping is correct.
+                    // We'll update Width + reflow in the resize handler; for now use a
+                    // generous single-line height — the resize will recalculate.
+                    int lblMeasuredH = 22;
+                    lbl.Height = lblMeasuredH;
+                    y += lblMeasuredH + 8;
 
                     string defaultStr = q.Default?.ToString() ?? "";
                     Control input;
@@ -166,8 +157,7 @@ namespace BimAiAssistant.UI
                             DropDownStyle = ComboBoxStyle.DropDownList,
                             Font          = new Font("Segoe UI", 10f),
                             BackColor     = Color.White,
-                            FlatStyle     = FlatStyle.Flat,
-                            Anchor        = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                            FlatStyle     = FlatStyle.Flat
                         };
                         foreach (string choice in q.Choices)
                             combo.Items.Add(choice);
@@ -177,7 +167,7 @@ namespace BimAiAssistant.UI
                     }
                     else
                     {
-                        var tb = new TextBox
+                        input = new TextBox
                         {
                             Left        = Pad,
                             Top         = y,
@@ -186,10 +176,8 @@ namespace BimAiAssistant.UI
                             Font        = new Font("Segoe UI", 10f),
                             BackColor   = Color.White,
                             ForeColor   = Color.FromArgb(20, 20, 20),
-                            BorderStyle = BorderStyle.FixedSingle,
-                            Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                            BorderStyle = BorderStyle.FixedSingle
                         };
-                        input = tb;
                     }
 
                     inner.Controls.Add(input);
@@ -197,42 +185,58 @@ namespace BimAiAssistant.UI
                     y += InpH + Gap;
                 }
 
-                y += 16; // bottom padding
+                y += 12; // bottom padding
                 inner.Height = y;
 
-                // Keep inner width and all anchored controls in sync with scroll panel width
-                scroll.Resize += (s, e) =>
+                void RelayoutInner()
                 {
-                    inner.Width = scroll.ClientSize.Width;
-                    foreach (Control c in inner.Controls)
-                    {
-                        if ((c.Anchor & AnchorStyles.Right) != 0)
-                            c.Width = inner.ClientSize.Width - Pad * 2;
-                    }
-                };
+                    int availW = scroll.ClientSize.Width - Pad * 2;
+                    if (availW < 10) return;
 
+                    int newY = 28;
+                    for (int i = 0; i < inner.Controls.Count; i += 2)
+                    {
+                        if (i + 1 >= inner.Controls.Count) break;
+                        var lbl   = inner.Controls[i] as Label;
+                        var input = inner.Controls[i + 1];
+                        if (lbl == null || input == null) break;
+
+                        lbl.Width = availW;
+                        lbl.Top   = newY;
+
+                        Size sz = TextRenderer.MeasureText(
+                            lbl.Text, lbl.Font,
+                            new Size(availW, int.MaxValue),
+                            TextFormatFlags.WordBreak);
+                        lbl.Height = sz.Height + 4;
+                        newY += lbl.Height + 8;
+
+                        input.Width = availW;
+                        input.Top   = newY;
+                        newY += input.Height + Gap;
+                    }
+
+                    newY += 12;
+                    inner.Height = newY;
+                    inner.Width  = scroll.ClientSize.Width;
+                }
+
+                scroll.Resize += (s, e) => RelayoutInner();
                 scroll.Controls.Add(inner);
 
-                // ── Assemble (order matters for docking) ──────────────────────
-                // header Dock=Top, footer Dock=Bottom, scroll Dock=Fill
-                form.Controls.Add(scroll);   // Fill — added first
+                // ── Assemble (dock order matters) ─────────────────────────────
+                form.Controls.Add(scroll);   // Fill — first
                 form.Controls.Add(footer);   // Bottom
-                form.Controls.Add(header);   // Top — painted last, always on top
+                form.Controls.Add(header);   // Top — painted on top
 
                 form.AcceptButton = confirmBtn;
                 form.CancelButton = cancelBtn;
 
                 form.Load += (s, e) =>
                 {
-                    // Force initial layout
-                    inner.Width = scroll.ClientSize.Width;
-                    foreach (Control c in inner.Controls)
-                    {
-                        if ((c.Anchor & AnchorStyles.Right) != 0)
-                            c.Width = inner.ClientSize.Width - Pad * 2;
-                    }
-                    confirmBtn.Left = footer.ClientSize.Width - Pad - 120;
-                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 120 - 8 - 90;
+                    RelayoutInner();
+                    confirmBtn.Left = footer.ClientSize.Width - Pad - 110;
+                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 110 - 10 - 96;
                 };
 
                 if (form.ShowDialog() != DialogResult.OK)
@@ -247,8 +251,10 @@ namespace BimAiAssistant.UI
                         : ((TextBox)control).Text.Trim();
 
                     if (type == "number" &&
-                        double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double d))
+                        double.TryParse(raw,
+                            System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            out double d))
                         answers[id] = d;
                     else
                         answers[id] = raw;
