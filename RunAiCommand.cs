@@ -69,13 +69,8 @@ namespace BimAiAssistant
             string summary = BuildSummary(response);
             InputDialog.RecordAction(instruction, summary);
 
-            // Show backend substitution warnings before the success dialog
             if (response.Warnings != null && response.Warnings.Count > 0)
-            {
-                TaskDialog.Show("BIM AI — Section substitutions",
-                    "The following sections were not found and were substituted:\n\n" +
-                    string.Join("\n", response.Warnings));
-            }
+                WarningsDialog.Show(response.Warnings);
 
             TaskDialog.Show("BIM AI — Done",
                 $"{executed} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");
