@@ -61,7 +61,8 @@ class GenerateActionResponse(BaseModel):
     status: Literal["ok", "needs_clarification", "error"]
     actions: list[BIMAction] | None = None
     questions: list[Question] | None = None
-    error: ErrorDetail | None = None    # present when status == "error"
+    error: ErrorDetail | None = None
+    warnings: list[str] = []    # engineering notes (Eurocode, spans, etc.) — show in plugin UI
     raw_llm_output: str = Field(
         description="Raw LLM string. For debugging/logging only. Never use in plugin logic."
     )

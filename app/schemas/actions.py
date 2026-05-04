@@ -58,6 +58,27 @@ class CreateBeamAction(BaseModel):
     level: str = "Level 1"
 
 
+# ── Parametric ─────────────────────────────────────────────────────────────────
+
+class CreateGridAction(BaseModel):
+    """
+    High-level parametric action — expanded into columns + beams by grid_expander.
+    Never sent to Revit directly.
+    """
+    action: Literal["create_grid"]
+    origin: Position = Position(x=0, y=0, z=0)
+    bays_x: int = Field(default=2, ge=1, le=50)
+    bays_y: int = Field(default=2, ge=1, le=50)
+    spacing_x: float = Field(default=5.0, gt=0, le=50)
+    spacing_y: float = Field(default=5.0, gt=0, le=50)
+    floors: int = Field(default=1, ge=1, le=50)
+    floor_height: float = Field(default=3.0, gt=0, le=20)
+    column_section: str | None = None   # None → auto-selected from Eurocode rules
+    beam_section_x: str | None = None  # None → auto-selected from Eurocode rules
+    beam_section_y: str | None = None  # None → auto-selected from Eurocode rules
+    base_level: str = "Level 1"        # name of the first floor level
+
+
 # ── Edit actions ───────────────────────────────────────────────────────────────
 
 class DeleteElementAction(BaseModel):
@@ -80,6 +101,7 @@ BIMAction = Annotated[
         AddDoorAction,
         CreateColumnAction,
         CreateBeamAction,
+        CreateGridAction,
         DeleteElementAction,
         MoveElementAction,
     ],

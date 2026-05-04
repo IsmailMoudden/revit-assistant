@@ -3,8 +3,9 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.core.llm import call_llm
 from app.prompts.bim_prompt import SYSTEM_PROMPT
-from app.schemas.actions import BIMAction
+from app.schemas.actions import BIMAction, CreateGridAction
 from app.schemas.request import GenerateActionRequest, GenerateActionResponse, Question, ErrorDetail
+from app.services.grid_expander import expand_grid
 
 _action_adapter = TypeAdapter(BIMAction)
 
@@ -83,15 +84,38 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
         )
 
     # status == "ok"
-    actions = []
+    actions: list[BIMAction] = []
+    warnings: list[str] = []
+
     for i, item in enumerate(parsed.get("actions", [])):
         try:
-            actions.append(_action_adapter.validate_python(item))
+            action = _action_adapter.validate_python(item)
         except ValidationError as e:
             raise ValueError(f"Action #{i} failed schema validation:\n{e}\nItem: {item}")
+
+        if isinstance(action, CreateGridAction):
+            expanded, grid_warnings = expand_grid(
+                origin_x=action.origin.x,
+                origin_y=action.origin.y,
+                bays_x=action.bays_x,
+                bays_y=action.bays_y,
+                spacing_x=action.spacing_x,
+                spacing_y=action.spacing_y,
+                floors=action.floors,
+                floor_height=action.floor_height,
+                base_level=action.base_level,
+                column_section=action.column_section,
+                beam_section_x=action.beam_section_x,
+                beam_section_y=action.beam_section_y,
+            )
+            actions.extend(expanded)
+            warnings.extend(grid_warnings)
+        else:
+            actions.append(action)
 
     return GenerateActionResponse(
         status="ok",
         actions=actions,
+        warnings=warnings,
         raw_llm_output=raw,
     )
