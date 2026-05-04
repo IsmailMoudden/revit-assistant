@@ -12,6 +12,17 @@ namespace BimAiAssistant.Models
         [JsonProperty("selected_level")] public string                     SelectedLevel { get; set; }
         [JsonProperty("answers")]        public Dictionary<string, object> Answers       { get; set; }  // null on first call
         [JsonProperty("history")]        public List<ConversationMessage>  History       { get; set; }
+        [JsonProperty("bim_context")]    public BimContext                 BimContext    { get; set; }
+    }
+
+    public class BimContext
+    {
+        [JsonProperty("existing_elements")]     public List<object> ExistingElements    { get; set; }
+        [JsonProperty("levels")]                public List<string> Levels              { get; set; }
+        [JsonProperty("selected_element_ids")]  public List<long>   SelectedElementIds  { get; set; }
+        [JsonProperty("loaded_column_families")] public List<string> LoadedColumnFamilies { get; set; }
+        [JsonProperty("loaded_beam_families")]  public List<string> LoadedBeamFamilies  { get; set; }
+        [JsonProperty("loaded_wall_types")]     public List<string> LoadedWallTypes     { get; set; }
     }
 
     public class ConversationMessage
@@ -24,10 +35,18 @@ namespace BimAiAssistant.Models
 
     public class ActionResponse
     {
-        [JsonProperty("status")]         public string                     Status       { get; set; }  // "ok" | "needs_clarification"
-        [JsonProperty("actions")]        public List<ActionPayload>        Actions      { get; set; }  // status == "ok"
-        [JsonProperty("questions")]      public List<ClarificationQuestion> Questions   { get; set; }  // status == "needs_clarification"
-        [JsonProperty("raw_llm_output")] public string                     RawLlmOutput { get; set; }
+        [JsonProperty("status")]         public string                      Status       { get; set; }  // "ok" | "needs_clarification" | "error"
+        [JsonProperty("actions")]        public List<ActionPayload>         Actions      { get; set; }  // status == "ok"
+        [JsonProperty("questions")]      public List<ClarificationQuestion> Questions    { get; set; }  // status == "needs_clarification"
+        [JsonProperty("warnings")]       public List<string>                Warnings     { get; set; }  // section substitution notices
+        [JsonProperty("error")]          public ErrorDetail                 Error        { get; set; }  // status == "error"
+        [JsonProperty("raw_llm_output")] public string                      RawLlmOutput { get; set; }
+    }
+
+    public class ErrorDetail
+    {
+        [JsonProperty("message")] public string Message { get; set; }
+        [JsonProperty("fix")]     public string Fix     { get; set; }
     }
 
     // ── Clarification question ────────────────────────────────────────────────

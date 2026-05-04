@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using BimAiAssistant.Actions;
 using BimAiAssistant.Api;
@@ -30,13 +31,14 @@ namespace BimAiAssistant
             Document      doc   = uiDoc.Document;
 
             string selectedLevel = ResolveActiveLevel(uiDoc, doc);
+            BimContext bimContext = BuildBimContext(doc, uiDoc);
 
             string instruction = InputDialog.Show();
             if (instruction == null)
                 return Result.Cancelled;
 
             ActionResponse response = RunClarificationLoop(
-                instruction, selectedLevel, out bool cancelled);
+                instruction, selectedLevel, bimContext, out bool cancelled);
 
             if (cancelled) return Result.Cancelled;
             if (response  == null) return Result.Failed;
@@ -67,6 +69,14 @@ namespace BimAiAssistant
             string summary = BuildSummary(response);
             InputDialog.RecordAction(instruction, summary);
 
+            // Show backend substitution warnings before the success dialog
+            if (response.Warnings != null && response.Warnings.Count > 0)
+            {
+                TaskDialog.Show("BIM AI — Section substitutions",
+                    "The following sections were not found and were substituted:\n\n" +
+                    string.Join("\n", response.Warnings));
+            }
+
             TaskDialog.Show("BIM AI — Done",
                 $"{executed} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");
 
@@ -76,7 +86,7 @@ namespace BimAiAssistant
         // ── Clarification loop ────────────────────────────────────────────────
 
         private ActionResponse RunClarificationLoop(
-            string instruction, string selectedLevel, out bool cancelled)
+            string instruction, string selectedLevel, BimContext bimContext, out bool cancelled)
         {
             cancelled = false;
 
@@ -86,7 +96,8 @@ namespace BimAiAssistant
                 Instruction   = instruction,
                 SelectedLevel = selectedLevel,
                 Answers       = null,
-                History       = new List<ConversationMessage>(_sessionHistory)
+                History       = new List<ConversationMessage>(_sessionHistory),
+                BimContext    = bimContext
             };
 
             ActionResponse response;
@@ -128,7 +139,8 @@ namespace BimAiAssistant
                         Instruction   = instruction,
                         SelectedLevel = selectedLevel,
                         Answers       = answers,
-                        History       = new List<ConversationMessage>(_sessionHistory)
+                        History       = new List<ConversationMessage>(_sessionHistory),
+                        BimContext    = bimContext
                     };
 
                     try { response = BimApiClient.Post(request); }
@@ -138,6 +150,15 @@ namespace BimAiAssistant
                         return null;
                     }
                     continue;
+                }
+
+                if (response.Status == "error")
+                {
+                    string msg = response.Error?.Message ?? "(no message)";
+                    string fix = response.Error?.Fix;
+                    TaskDialog.Show("BIM AI — Error",
+                        fix != null ? $"{msg}\n\nSuggestion: {fix}" : msg);
+                    return null;
                 }
 
                 // Unknown status
@@ -155,8 +176,53 @@ namespace BimAiAssistant
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        /// <summary>Clears the in-memory conversation history.</summary>
         public static void ClearHistory() => _sessionHistory.Clear();
+
+        private static BimContext BuildBimContext(Document doc, UIDocument uiDoc)
+        {
+            var columnFamilies = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_StructuralColumns)
+                .Cast<FamilySymbol>()
+                .Select(fs => fs.Family.Name)
+                .Distinct()
+                .ToList();
+
+            var beamFamilies = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .Cast<FamilySymbol>()
+                .Select(fs => fs.Family.Name)
+                .Distinct()
+                .ToList();
+
+            var wallTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(WallType))
+                .Cast<WallType>()
+                .Select(wt => wt.Name)
+                .ToList();
+
+            var levels = new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .OrderBy(l => l.Elevation)
+                .Select(l => l.Name)
+                .ToList();
+
+            var selectedIds = uiDoc.Selection.GetElementIds()
+                .Select(id => id.Value)
+                .ToList();
+
+            return new BimContext
+            {
+                ExistingElements     = new List<object>(),
+                Levels               = levels,
+                SelectedElementIds   = selectedIds,
+                LoadedColumnFamilies = columnFamilies,
+                LoadedBeamFamilies   = beamFamilies,
+                LoadedWallTypes      = wallTypes
+            };
+        }
 
         private static string ResolveActiveLevel(UIDocument uiDoc, Document doc)
         {
