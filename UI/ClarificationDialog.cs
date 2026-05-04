@@ -6,170 +6,196 @@ using BimAiAssistant.Models;
 
 namespace BimAiAssistant.UI
 {
-    /// <summary>
-    /// Dynamically builds a WinForms dialog from a list of clarification questions.
-    /// Supports question types: "number", "text", "choice" (dropdown).
-    /// Returns null if the user cancels.
-    /// </summary>
     public static class ClarificationDialog
     {
-        private const int LabelH   = 18;
-        private const int InputH   = 26;
-        private const int Margin   = 12;
-        private const int Pad      = 8;
-        private const int FormW    = 460;
+        private const int FormW   = 520;
+        private const int Pad     = 24;   // horizontal margin
+        private const int RowGap  = 20;   // vertical gap between questions
 
         public static Dictionary<string, object> Show(List<ClarificationQuestion> questions)
         {
-            // Collect one Control per question so we can read values on submit
-            var inputs = new List<(string id, Control control)>();
-
-            int y = Margin + 30; // top offset — leaves room for the header label
+            var inputs = new List<(string id, Control control, string type)>();
 
             using (var form = new Form())
             {
-                form.Text            = "BIM AI — More information needed";
+                // ── Window ────────────────────────────────────────────────────
+                form.Text            = "BIM AI Assistant";
                 form.FormBorderStyle = FormBorderStyle.FixedDialog;
                 form.StartPosition   = FormStartPosition.CenterScreen;
                 form.MaximizeBox     = false;
                 form.MinimizeBox     = false;
-                form.BackColor       = Color.White;
+                form.BackColor       = Color.FromArgb(245, 246, 248);
                 form.Width           = FormW;
 
-                // ── Header ────────────────────────────────────────────────────
-                var header = new Label
+                // ── Dark header ───────────────────────────────────────────────
+                var header = new Panel
                 {
-                    Text      = "The AI needs a few more details:",
-                    Left      = Margin,
-                    Top       = Margin,
-                    Width     = FormW - Margin * 2,
-                    Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(40, 40, 40)
+                    Dock      = DockStyle.Top,
+                    Height    = 56,
+                    BackColor = Color.FromArgb(18, 18, 18)
                 };
-                form.Controls.Add(header);
+                var headerTitle = new Label
+                {
+                    Text      = "BIM AI Assistant",
+                    Font      = new Font("Segoe UI", 13f, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    Left      = 20,
+                    Top       = 14,
+                    AutoSize  = true
+                };
+                var headerSub = new Label
+                {
+                    Text      = "A few more details are needed",
+                    Font      = new Font("Segoe UI", 8f),
+                    ForeColor = Color.FromArgb(170, 170, 170),
+                    Left      = 22,
+                    Top       = 36,
+                    AutoSize  = true
+                };
+                header.Controls.Add(headerTitle);
+                header.Controls.Add(headerSub);
 
-                // ── One row per question ───────────────────────────────────────
+                // ── Body (dynamic height, added after controls so we know total height) ─
+                // We'll position everything absolutely, starting below the header (56px).
+                // Controls are added directly to form for simplicity with FixedDialog.
+
+                int y = 56 + 20; // below header + top padding
+
+                // ── One row per question ──────────────────────────────────────
                 foreach (var q in questions)
                 {
-                    // Question label
                     var lbl = new Label
                     {
                         Text      = q.Question,
-                        Left      = Margin,
+                        Left      = Pad,
                         Top       = y,
-                        Width     = FormW - Margin * 2,
-                        Height    = LabelH,
-                        Font      = new Font("Segoe UI", 9f),
-                        ForeColor = Color.FromArgb(60, 60, 60)
+                        Width     = FormW - Pad * 2 - 16,
+                        Height    = 18,
+                        Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(60, 60, 60),
+                        AutoSize  = false
                     };
                     form.Controls.Add(lbl);
-                    y += LabelH + Pad / 2;
+                    y += 22;
 
                     string defaultStr = q.Default?.ToString() ?? "";
-
                     Control input;
 
                     if (q.Type == "choice" && q.Choices != null && q.Choices.Count > 0)
                     {
                         var combo = new ComboBox
                         {
-                            Left          = Margin,
+                            Left          = Pad,
                             Top           = y,
-                            Width         = FormW - Margin * 2,
-                            Height        = InputH,
+                            Width         = FormW - Pad * 2 - 16,
+                            Height        = 28,
                             DropDownStyle = ComboBoxStyle.DropDownList,
-                            Font          = new Font("Segoe UI", 9f)
+                            Font          = new Font("Segoe UI", 9.5f),
+                            BackColor     = Color.White,
+                            FlatStyle     = FlatStyle.Flat
                         };
                         foreach (string choice in q.Choices)
                             combo.Items.Add(choice);
-
-                        // Pre-select default
                         int idx = combo.Items.IndexOf(defaultStr);
                         combo.SelectedIndex = idx >= 0 ? idx : 0;
-
                         input = combo;
                     }
                     else
                     {
                         var tb = new TextBox
                         {
-                            Left  = Margin,
-                            Top   = y,
-                            Width = FormW - Margin * 2,
-                            Height = InputH,
-                            Text  = defaultStr,
-                            Font  = new Font("Segoe UI", 9f)
+                            Left        = Pad,
+                            Top         = y,
+                            Width       = FormW - Pad * 2 - 16,
+                            Height      = 28,
+                            Text        = defaultStr,
+                            Font        = new Font("Segoe UI", 9.5f),
+                            BackColor   = Color.White,
+                            ForeColor   = Color.FromArgb(20, 20, 20),
+                            BorderStyle = BorderStyle.FixedSingle
                         };
                         input = tb;
                     }
 
                     form.Controls.Add(input);
-                    inputs.Add((q.Id, input));
-                    y += InputH + Margin;
+                    inputs.Add((q.Id, input, q.Type ?? "text"));
+                    y += 28 + RowGap;
                 }
 
-                // ── Buttons ───────────────────────────────────────────────────
-                var confirmBtn = new Button
+                // ── Divider ───────────────────────────────────────────────────
+                var divider = new Panel
                 {
-                    Text      = "Confirm",
-                    Left      = FormW - Margin - 200 - Pad - 90,
+                    Left      = Pad,
+                    Top       = y,
+                    Width     = FormW - Pad * 2 - 16,
+                    Height    = 1,
+                    BackColor = Color.FromArgb(220, 220, 220)
+                };
+                form.Controls.Add(divider);
+                y += 16;
+
+                // ── Buttons ───────────────────────────────────────────────────
+                var cancelBtn = new Button
+                {
+                    Text      = "Cancel",
+                    Left      = FormW - Pad - 16 - 90 - 8 - 120,
                     Top       = y,
                     Width     = 90,
-                    Height    = 32,
-                    BackColor = Color.Black,
-                    ForeColor = Color.White,
+                    Height    = 34,
                     FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    Font      = new Font("Segoe UI", 9f),
+                    BackColor = Color.White,
+                    ForeColor = Color.FromArgb(60, 60, 60),
+                    Cursor    = Cursors.Hand,
+                    DialogResult = DialogResult.Cancel
+                };
+                cancelBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
+                cancelBtn.FlatAppearance.BorderSize  = 1;
+
+                var confirmBtn = new Button
+                {
+                    Text      = "✓  Confirm",
+                    Left      = FormW - Pad - 16 - 120,
+                    Top       = y,
+                    Width     = 120,
+                    Height    = 34,
+                    FlatStyle = FlatStyle.Flat,
+                    Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    BackColor = Color.FromArgb(18, 18, 18),
+                    ForeColor = Color.White,
+                    Cursor    = Cursors.Hand,
                     DialogResult = DialogResult.OK
                 };
                 confirmBtn.FlatAppearance.BorderSize = 0;
 
-                var cancelBtn = new Button
-                {
-                    Text         = "Cancel",
-                    Left         = FormW - Margin - 90,
-                    Top          = y,
-                    Width        = 90,
-                    Height       = 32,
-                    FlatStyle    = FlatStyle.Flat,
-                    Font         = new Font("Segoe UI", 9f),
-                    DialogResult = DialogResult.Cancel
-                };
+                form.Controls.AddRange(new Control[] { divider, cancelBtn, confirmBtn });
+                y += 34 + 20;
 
-                form.Controls.AddRange(new Control[] { confirmBtn, cancelBtn });
-                form.Height       = y + 32 + Margin * 3;
+                form.Height       = y;
                 form.AcceptButton = confirmBtn;
                 form.CancelButton = cancelBtn;
+
+                // Header is added last so it paints on top
+                form.Controls.Add(header);
 
                 if (form.ShowDialog() != DialogResult.OK)
                     return null;
 
                 // ── Collect answers ───────────────────────────────────────────
                 var answers = new Dictionary<string, object>();
-
-                foreach (var (id, control) in inputs)
+                foreach (var (id, control, type) in inputs)
                 {
                     string raw = control is ComboBox cb
                         ? cb.SelectedItem?.ToString() ?? ""
                         : ((TextBox)control).Text.Trim();
 
-                    // Find matching question to know expected type
-                    ClarificationQuestion q = questions.Find(x => x.Id == id);
-
-                    if (q?.Type == "number")
-                    {
-                        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                                System.Globalization.CultureInfo.InvariantCulture, out double d))
-                            answers[id] = d;
-                        else
-                            answers[id] = raw; // pass as string — backend will handle
-                    }
+                    if (type == "number" &&
+                        double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out double d))
+                        answers[id] = d;
                     else
-                    {
                         answers[id] = raw;
-                    }
                 }
-
                 return answers;
             }
         }
