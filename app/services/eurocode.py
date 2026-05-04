@@ -42,6 +42,61 @@ def select_beam_section(span_m: float) -> str:
     return "IPE500"
 
 
+# ── Section preference order — from lightest to heaviest ──────────────────────
+# Used to pick the best available loaded family
+_COLUMN_PREFERENCE = ["HEA160","HEA200","HEA220","HEA240","HEA260","HEB200","HEB240","HEB260","HEB300","HEB320","HEB360"]
+_BEAM_PREFERENCE   = ["IPE160","IPE200","IPE220","IPE240","IPE270","IPE300","IPE330","IPE360","IPE400","IPE450","IPE500"]
+
+
+def best_available_column(required: str, loaded: list[str]) -> tuple[str, str | None]:
+    """
+    Returns (section_to_use, warning_or_None).
+    If required is loaded → use it.
+    If not → find the next heavier available section.
+    If nothing available → use required anyway and warn.
+    """
+    if not loaded:
+        return required, None  # no context provided — use as-is, plugin must handle
+
+    if required in loaded:
+        return required, None
+
+    # find index of required in preference list, pick next heavier that is loaded
+    try:
+        idx = _COLUMN_PREFERENCE.index(required)
+    except ValueError:
+        # unknown section — use first available
+        return loaded[0], f"Section '{required}' not in known list. Using '{loaded[0]}' (first loaded)."
+
+    for candidate in _COLUMN_PREFERENCE[idx:]:
+        if candidate in loaded:
+            return candidate, f"'{required}' not loaded in project. Using '{candidate}' (next heavier available)."
+
+    # nothing heavier available — use heaviest loaded
+    fallback = loaded[-1]
+    return fallback, f"'{required}' not loaded. Using '{fallback}' (heaviest available). Verify adequacy."
+
+
+def best_available_beam(required: str, loaded: list[str]) -> tuple[str, str | None]:
+    if not loaded:
+        return required, None
+
+    if required in loaded:
+        return required, None
+
+    try:
+        idx = _BEAM_PREFERENCE.index(required)
+    except ValueError:
+        return loaded[0], f"Section '{required}' not in known list. Using '{loaded[0]}' (first loaded)."
+
+    for candidate in _BEAM_PREFERENCE[idx:]:
+        if candidate in loaded:
+            return candidate, f"'{required}' not loaded in project. Using '{candidate}' (next heavier available)."
+
+    fallback = loaded[-1]
+    return fallback, f"'{required}' not loaded. Using '{fallback}' (heaviest available). Verify adequacy."
+
+
 def validate_spans(spacing_x: float, spacing_y: float) -> list[str]:
     """Return a list of engineering warnings for the given bay spacings."""
     warnings = []

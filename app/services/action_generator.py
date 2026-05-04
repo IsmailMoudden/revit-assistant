@@ -107,6 +107,8 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
                 column_section=action.column_section,
                 beam_section_x=action.beam_section_x,
                 beam_section_y=action.beam_section_y,
+                loaded_column_families=request.bim_context.loaded_column_families or None,
+                loaded_beam_families=request.bim_context.loaded_beam_families or None,
             )
             actions.extend(expanded)
             warnings.extend(grid_warnings)

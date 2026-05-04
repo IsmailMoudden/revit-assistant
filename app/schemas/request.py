@@ -22,7 +22,10 @@ class ExistingElement(BaseModel):
 class BIMContext(BaseModel):
     existing_elements: list[ExistingElement] = []
     levels: list[str] = []
-    selected_element_ids: list[str] = []       # IDs currently selected in Revit
+    selected_element_ids: list[str] = []
+    loaded_column_families: list[str] = []  # section names loaded in project e.g. ["HEA200", "HEB240"]
+    loaded_beam_families: list[str] = []    # e.g. ["IPE300", "IPE360"]
+    loaded_wall_types: list[str] = []       # e.g. ["Generic - 200mm", "Basic Wall"]
 
 
 # ── Execution feedback — what happened after the plugin ran the last actions ───
