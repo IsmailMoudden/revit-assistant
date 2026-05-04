@@ -8,55 +8,56 @@ namespace BimAiAssistant.Actions
     public static class ActionDispatcher
     {
         /// <summary>
-        /// Executes a list of actions sequentially.
-        /// Must be called inside an open Transaction.
-        /// Throws on the first unrecoverable error — the caller must roll back.
+        /// Executes all actions inside an open Transaction.
+        /// Returns count of executed actions and collects all fallback warnings
+        /// into <paramref name="warnings"/> — no TaskDialogs are shown mid-execution.
+        /// Throws on unrecoverable error; caller must roll back.
         /// </summary>
-        /// <returns>Number of actions successfully executed.</returns>
-        public static int ExecuteAll(Document doc, UIApplication uiApp, List<ActionPayload> actions)
+        public static int ExecuteAll(
+            Document doc,
+            UIApplication uiApp,
+            List<ActionPayload> actions,
+            List<string> warnings)
         {
             int executed = 0;
-
             foreach (ActionPayload action in actions)
             {
-                ExecuteOne(doc, uiApp, action);
+                ExecuteOne(doc, uiApp, action, warnings);
                 executed++;
             }
-
             return executed;
         }
 
-        private static void ExecuteOne(Document doc, UIApplication uiApp, ActionPayload action)
+        private static void ExecuteOne(
+            Document doc,
+            UIApplication uiApp,
+            ActionPayload action,
+            List<string> warnings)
         {
             switch (action.ActionType)
             {
                 case "create_wall":
-                    CreateWallAction.Execute(doc, action);
+                    CreateWallAction.Execute(doc, action, warnings);
                     break;
 
                 case "create_column":
-                    CreateColumnAction.Execute(doc, action);
+                    CreateColumnAction.Execute(doc, action, warnings);
                     break;
 
                 case "create_beam":
-                    CreateBeamAction.Execute(doc, action);
+                    CreateBeamAction.Execute(doc, action, warnings);
                     break;
 
                 case "add_window":
-                    AddWindowAction.Execute(doc, action);
+                    AddWindowAction.Execute(doc, action, warnings);
                     break;
 
                 case "add_door":
-                    AddDoorAction.Execute(doc, action);
+                    AddDoorAction.Execute(doc, action, warnings);
                     break;
 
                 default:
-                    // Unknown action type — do not crash; warn and skip
-                    TaskDialog.Show(
-                        "BIM AI — Unknown Action",
-                        $"Action type \"{action.ActionType}\" is not supported.\n" +
-                        "This action was skipped. All other actions in this batch were executed."
-                    );
+                    warnings.Add($"Action type \"{action.ActionType}\" is not supported and was skipped.");
                     break;
             }
         }

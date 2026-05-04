@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 using BimAiAssistant.Models;
 
 namespace BimAiAssistant.Actions
@@ -9,22 +9,20 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action)
+        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
         {
             FamilySymbol symbol = FamilySymbolHelper.Resolve(
-                doc, familyName: null, typeName: null, BuiltInCategory.OST_Doors);
+                doc, familyName: null, typeName: null, BuiltInCategory.OST_Doors, warnings);
 
-            if (!symbol.IsActive)
-                symbol.Activate();
+            if (!symbol.IsActive) symbol.Activate();
 
-            // Backend AddDoorAction schema has no count/spacing — default to 1
             int    count = action.Count   ?? 1;
             double x     = (action.Position?.X ?? 0)   * MtoFt;
             double y     = (action.Position?.Y ?? 0)   * MtoFt;
             double z     = (action.Position?.Z ?? 0)   * MtoFt;
             double step  = (action.Spacing     ?? 1.5) * MtoFt;
 
-            Wall hostWall = ResolveHostWall(doc, action.WallId, x, y);
+            Wall hostWall = ResolveHostWall(doc, action.WallId, x, y, warnings);
 
             for (int i = 0; i < count; i++)
             {
@@ -32,21 +30,18 @@ namespace BimAiAssistant.Actions
                     new XYZ(x + i * step, y, z),
                     symbol,
                     hostWall,
-                    Autodesk.Revit.DB.Structure.StructuralType.NonStructural
-                );
+                    Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
             }
         }
 
-        private static Wall ResolveHostWall(Document doc, string wallId, double x, double y)
+        private static Wall ResolveHostWall(
+            Document doc, string wallId, double x, double y, List<string> warnings)
         {
-            if (!string.IsNullOrWhiteSpace(wallId) &&
-                int.TryParse(wallId, out int id))
+            if (!string.IsNullOrWhiteSpace(wallId) && int.TryParse(wallId, out int id))
             {
                 var element = doc.GetElement(new ElementId((long)id));
                 if (element is Wall wall) return wall;
-
-                throw new System.Exception(
-                    $"wall_id {wallId} not found or is not a Wall.");
+                throw new System.Exception($"wall_id {wallId} not found or is not a Wall.");
             }
 
             var pt = new XYZ(x, y, 0);
@@ -66,9 +61,9 @@ namespace BimAiAssistant.Actions
                              walls[1].Location is LocationCurve lc3 &&
                              System.Math.Abs(lc3.Curve.Distance(pt) - dist) < 0.3 * MtoFt;
 
-            TaskDialog.Show("BIM AI — Wall Selection",
+            warnings.Add(
                 (ambiguous ? "Multiple walls are close — " : "") +
-                $"wall_id was null. Auto-selected wall Id={nearest.Id.Value} " +
+                $"No wall_id specified. Auto-selected wall Id={nearest.Id.Value} " +
                 $"(distance {dist / MtoFt:F2} m).");
 
             return nearest;

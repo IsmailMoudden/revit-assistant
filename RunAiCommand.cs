@@ -49,12 +49,13 @@ namespace BimAiAssistant
 
             // Execute all actions in one atomic transaction
             int executed = 0;
+            var localWarnings = new List<string>();
             using (var tx = new Transaction(doc, $"BIM AI — {response.Actions.Count} action(s)"))
             {
                 tx.Start();
                 try
                 {
-                    executed = ActionDispatcher.ExecuteAll(doc, uiApp, response.Actions);
+                    executed = ActionDispatcher.ExecuteAll(doc, uiApp, response.Actions, localWarnings);
                     tx.Commit();
                 }
                 catch (Exception ex)
@@ -69,8 +70,12 @@ namespace BimAiAssistant
             string summary = BuildSummary(response);
             InputDialog.RecordAction(instruction, summary);
 
-            if (response.Warnings != null && response.Warnings.Count > 0)
-                WarningsDialog.Show(response.Warnings);
+            // Merge backend warnings (section substitutions) + local warnings (family/level fallbacks)
+            var allWarnings = new List<string>();
+            if (response.Warnings != null) allWarnings.AddRange(response.Warnings);
+            allWarnings.AddRange(localWarnings);
+            if (allWarnings.Count > 0)
+                WarningsDialog.Show(allWarnings);
 
             TaskDialog.Show("BIM AI — Done",
                 $"{executed} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");

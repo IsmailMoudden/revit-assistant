@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using BimAiAssistant.Models;
 
@@ -7,7 +8,7 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action)
+        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
         {
             double startX = (action.Start?.X ?? 0) * MtoFt;
             double startY = (action.Start?.Y ?? 0) * MtoFt;
@@ -19,7 +20,8 @@ namespace BimAiAssistant.Actions
 
             Level level = LevelHelper.Resolve(doc, action.Level, out bool usedFallback);
             if (usedFallback)
-                RevitLogger.Warn($"Wall: level \"{action.Level}\" not found — using \"{level.Name}\".");
+                RevitLogger.Warn(warnings,
+                    $"Wall: level \"{action.Level}\" not found — using \"{level.Name}\".");
 
             Wall wall = Wall.Create(doc, line, level.Id, structural: false);
             wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)?.Set(height);

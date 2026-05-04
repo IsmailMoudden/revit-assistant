@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 
 namespace BimAiAssistant.Actions
 {
@@ -11,7 +10,8 @@ namespace BimAiAssistant.Actions
             Document doc,
             string familyName,
             string typeName,
-            BuiltInCategory category)
+            BuiltInCategory category,
+            List<string> warnings)
         {
             var symbols = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
@@ -20,43 +20,36 @@ namespace BimAiAssistant.Actions
                 .ToList();
 
             if (symbols.Count == 0)
-            {
-                // Hard stop — nothing to fall back to
                 throw new System.Exception(
                     $"No families loaded for category {category}.\n" +
-                    "Load at least one family into the project before running this action."
-                );
-            }
+                    "Load at least one family into the project before running this action.");
 
             // Exact match: family + type
             if (!string.IsNullOrWhiteSpace(familyName) && !string.IsNullOrWhiteSpace(typeName))
             {
                 var exact = symbols.FirstOrDefault(s =>
                     s.FamilyName == familyName && s.Name == typeName);
-                if (exact != null)
-                    return exact;
+                if (exact != null) return exact;
 
                 // Partial match: family only
                 var byFamily = symbols.FirstOrDefault(s => s.FamilyName == familyName);
                 if (byFamily != null)
                 {
-                    WarnFallback(
+                    warnings.Add(
                         $"Type \"{typeName}\" not found in family \"{familyName}\".\n" +
-                        $"Using type \"{byFamily.Name}\" instead."
-                    );
+                        $"Using type \"{byFamily.Name}\" instead.");
                     return byFamily;
                 }
             }
             else if (!string.IsNullOrWhiteSpace(familyName))
             {
                 var byFamily = symbols.FirstOrDefault(s => s.FamilyName == familyName);
-                if (byFamily != null)
-                    return byFamily;
+                if (byFamily != null) return byFamily;
             }
 
-            // Full fallback: first available symbol — always tell the user what was picked
+            // Full fallback
             var fallback = symbols.First();
-            WarnFallback(BuildFallbackMessage(familyName, typeName, fallback, symbols));
+            warnings.Add(BuildFallbackMessage(familyName, typeName, fallback, symbols));
             return fallback;
         }
 
@@ -78,14 +71,9 @@ namespace BimAiAssistant.Actions
                 availableNames += $" … (+{available.Count - 5} more)";
 
             return
-                $"Requested family/type: {requested}\n" +
-                $"Not found in project. Using: {chosen.FamilyName} / {chosen.Name}\n\n" +
+                $"Requested: {requested}\n" +
+                $"Not found — using: {chosen.FamilyName} / {chosen.Name}\n" +
                 $"Available: {availableNames}";
-        }
-
-        private static void WarnFallback(string message)
-        {
-            TaskDialog.Show("BIM AI — Family Fallback", message);
         }
     }
 }
