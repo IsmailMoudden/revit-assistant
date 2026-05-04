@@ -54,21 +54,18 @@ namespace BimAiAssistant.UI
                 header.Controls.Add(appTitle);
                 header.Controls.Add(appSub);
 
-                // ── Body panel (scrollable, fills remaining space) ─────────────
-                var body = new Panel
-                {
-                    Dock    = DockStyle.Fill,
-                    Padding = new Padding(20, 16, 20, 16)
-                };
+                // ── Body panel (fills remaining space, no WinForms padding — we use absolute offsets) ──
+                var body = new Panel { Dock = DockStyle.Fill };
 
                 // ── Instruction label ─────────────────────────────────────────
+                // Top=20 gives clear breathing room below the dark header
                 var instructionLabel = new Label
                 {
                     Text      = "Instruction",
                     Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(80, 80, 80),
-                    Left      = 20,
-                    Top       = 16,
+                    Left      = 24,
+                    Top       = 20,
                     AutoSize  = true
                 };
 
@@ -76,9 +73,9 @@ namespace BimAiAssistant.UI
                 const string placeholder = "e.g.  create a 6×4 frame with HEA240 columns on Level 2";
                 var textBox = new TextBox
                 {
-                    Left        = 20,
-                    Top         = 38,
-                    Height      = 64,
+                    Left        = 24,
+                    Top         = 42,
+                    Height      = 72,
                     Multiline   = true,
                     ScrollBars  = ScrollBars.Vertical,
                     Font        = new Font("Segoe UI", 10f),
@@ -88,8 +85,7 @@ namespace BimAiAssistant.UI
                     BorderStyle = BorderStyle.FixedSingle,
                     Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
-                // Resize textbox width with form
-                body.Resize += (s, e) => textBox.Width = body.ClientSize.Width - 40;
+                body.Resize += (s, e) => textBox.Width = body.ClientSize.Width - 48;
 
                 textBox.GotFocus += (s, e) =>
                 {
@@ -102,32 +98,29 @@ namespace BimAiAssistant.UI
                     { textBox.Text = placeholder; textBox.ForeColor = Color.FromArgb(140, 140, 140); }
                 };
 
-                // ── Button row ────────────────────────────────────────────────
-                var buttonPanel = new Panel
-                {
-                    Left   = 20,
-                    Top    = 114,
-                    Height = 40,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-                };
-                body.Resize += (s, e) => buttonPanel.Width = body.ClientSize.Width - 40;
-
+                // ── Status label (sits between textbox and buttons) ───────────
+                // textBox bottom = 42+72 = 114; status at 122 leaves 8px gap
                 var statusLabel = new Label
                 {
                     Text      = "",
                     Font      = new Font("Segoe UI", 8.5f, FontStyle.Italic),
                     ForeColor = Color.FromArgb(120, 120, 120),
-                    Left      = 0,
-                    Top       = 10,
-                    Width     = 280,
-                    AutoSize  = false
+                    Left      = 24,
+                    Top       = 122,
+                    Height    = 18,
+                    AutoSize  = false,
+                    Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
+                body.Resize += (s, e) => statusLabel.Width = body.ClientSize.Width - 48 - 230;
 
+                // ── Button row ────────────────────────────────────────────────
+                // status label at 122 h=18 → buttons at 142
                 var cancelButton = new Button
                 {
                     Text      = "Cancel",
                     Width     = 90,
-                    Height    = 36,
+                    Height    = 34,
+                    Top       = 140,
                     FlatStyle = FlatStyle.Flat,
                     Font      = new Font("Segoe UI", 9f),
                     BackColor = Color.White,
@@ -143,7 +136,8 @@ namespace BimAiAssistant.UI
                 {
                     Text      = "⚡  Run AI",
                     Width     = 120,
-                    Height    = 36,
+                    Height    = 34,
+                    Top       = 140,
                     FlatStyle = FlatStyle.Flat,
                     Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                     BackColor = Color.FromArgb(18, 18, 18),
@@ -153,25 +147,24 @@ namespace BimAiAssistant.UI
                 };
                 runButton.FlatAppearance.BorderSize = 0;
 
-                // Position buttons right-aligned inside buttonPanel
-                buttonPanel.Resize += (s, e) =>
+                // Right-align both buttons; updated on every resize
+                body.Resize += (s, e) =>
                 {
-                    runButton.Left    = buttonPanel.Width - 120;
-                    cancelButton.Left = buttonPanel.Width - 120 - 98;
+                    runButton.Left    = body.ClientSize.Width - 24 - 120;
+                    cancelButton.Left = body.ClientSize.Width - 24 - 120 - 98;
                 };
 
-                buttonPanel.Controls.AddRange(new Control[] { statusLabel, cancelButton, runButton });
-
                 // ── Divider ───────────────────────────────────────────────────
+                // buttons bottom = 140+34 = 174; divider 12px below → 186
                 var divider = new Panel
                 {
-                    Left      = 20,
-                    Top       = 164,
+                    Left      = 24,
+                    Top       = 186,
                     Height    = 1,
                     BackColor = Color.FromArgb(220, 220, 220),
                     Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
-                body.Resize += (s, e) => divider.Width = body.ClientSize.Width - 40;
+                body.Resize += (s, e) => divider.Width = body.ClientSize.Width - 48;
 
                 // ── History header row ────────────────────────────────────────
                 var historyLabel = new Label
@@ -179,8 +172,8 @@ namespace BimAiAssistant.UI
                     Text      = "Conversation history",
                     Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(80, 80, 80),
-                    Left      = 20,
-                    Top       = 176,
+                    Left      = 24,
+                    Top       = 198,
                     AutoSize  = true
                 };
 
@@ -189,6 +182,7 @@ namespace BimAiAssistant.UI
                     Text      = "Clear",
                     Width     = 64,
                     Height    = 24,
+                    Top       = 195,
                     FlatStyle = FlatStyle.Flat,
                     Font      = new Font("Segoe UI", 8f),
                     BackColor = Color.White,
@@ -198,14 +192,14 @@ namespace BimAiAssistant.UI
                 };
                 clearBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
                 clearBtn.FlatAppearance.BorderSize  = 1;
-                body.Resize += (s, e) => clearBtn.Left = body.ClientSize.Width - 40 - 64;
-                clearBtn.Top = 173;
+                body.Resize += (s, e) => clearBtn.Left = body.ClientSize.Width - 24 - 64;
 
                 // ── History listbox ───────────────────────────────────────────
+                // history header at 198 h~20 → listbox at 226
                 var historyBox = new ListBox
                 {
-                    Left          = 20,
-                    Top           = 206,
+                    Left          = 24,
+                    Top           = 226,
                     Font          = new Font("Segoe UI", 8.5f),
                     BackColor     = Color.White,
                     BorderStyle   = BorderStyle.FixedSingle,
@@ -216,8 +210,8 @@ namespace BimAiAssistant.UI
                 };
                 body.Resize += (s, e) =>
                 {
-                    historyBox.Width  = body.ClientSize.Width - 40;
-                    historyBox.Height = body.ClientSize.Height - 206 - 10;
+                    historyBox.Width  = body.ClientSize.Width - 48;
+                    historyBox.Height = Math.Max(40, body.ClientSize.Height - 226 - 12);
                 };
                 RefreshHistory(historyBox);
 
@@ -257,8 +251,8 @@ namespace BimAiAssistant.UI
                 body.Controls.AddRange(new Control[]
                 {
                     instructionLabel, textBox,
-                    buttonPanel, divider,
-                    historyLabel, clearBtn, historyBox
+                    statusLabel, cancelButton, runButton,
+                    divider, historyLabel, clearBtn, historyBox
                 });
 
                 form.Controls.Add(body);
@@ -267,18 +261,19 @@ namespace BimAiAssistant.UI
                 form.AcceptButton = runButton;
                 form.CancelButton = cancelButton;
 
-                // Trigger initial resize to set widths
+                // Trigger initial layout to set all widths / positions
                 form.Load += (s, e) =>
                 {
-                    body.PerformLayout();
-                    textBox.Width     = body.ClientSize.Width - 40;
-                    buttonPanel.Width = body.ClientSize.Width - 40;
-                    divider.Width     = body.ClientSize.Width - 40;
-                    clearBtn.Left     = body.ClientSize.Width - 40 - 64;
-                    historyBox.Width  = body.ClientSize.Width - 40;
-                    historyBox.Height = body.ClientSize.Height - 206 - 10;
-                    runButton.Left    = buttonPanel.Width - 120;
-                    cancelButton.Left = buttonPanel.Width - 120 - 98;
+                    int w = body.ClientSize.Width;
+                    int h = body.ClientSize.Height;
+                    textBox.Width      = w - 48;
+                    statusLabel.Width  = w - 48 - 230;
+                    divider.Width      = w - 48;
+                    runButton.Left     = w - 24 - 120;
+                    cancelButton.Left  = w - 24 - 120 - 98;
+                    clearBtn.Left      = w - 24 - 64;
+                    historyBox.Width   = w - 48;
+                    historyBox.Height  = Math.Max(40, h - 226 - 12);
                 };
 
                 form.ShowDialog();
