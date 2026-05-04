@@ -8,9 +8,10 @@ namespace BimAiAssistant.UI
 {
     public static class ClarificationDialog
     {
-        private const int FormW   = 520;
-        private const int Pad     = 24;   // horizontal margin
-        private const int RowGap  = 20;   // vertical gap between questions
+        private const int Pad    = 28;  // horizontal margin inside scroll panel
+        private const int LblH  = 20;  // question label height
+        private const int InpH  = 32;  // input control height
+        private const int Gap   = 28;  // vertical gap between questions
 
         public static Dictionary<string, object> Show(List<ClarificationQuestion> questions)
         {
@@ -20,14 +21,15 @@ namespace BimAiAssistant.UI
             {
                 // ── Window ────────────────────────────────────────────────────
                 form.Text            = "BIM AI Assistant";
-                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MinimumSize     = new Size(480, 360);
+                form.Size            = new Size(560, 480);
+                form.FormBorderStyle = FormBorderStyle.Sizable;
                 form.StartPosition   = FormStartPosition.CenterScreen;
-                form.MaximizeBox     = false;
+                form.MaximizeBox     = true;
                 form.MinimizeBox     = false;
                 form.BackColor       = Color.FromArgb(245, 246, 248);
-                form.Width           = FormW;
 
-                // ── Dark header ───────────────────────────────────────────────
+                // ── Dark header (Dock=Top, always visible) ────────────────────
                 var header = new Panel
                 {
                     Dock      = DockStyle.Top,
@@ -55,28 +57,101 @@ namespace BimAiAssistant.UI
                 header.Controls.Add(headerTitle);
                 header.Controls.Add(headerSub);
 
-                // ── Body (dynamic height, added after controls so we know total height) ─
-                // We'll position everything absolutely, starting below the header (56px).
-                // Controls are added directly to form for simplicity with FixedDialog.
+                // ── Footer panel (Dock=Bottom) — buttons always visible ───────
+                var footer = new Panel
+                {
+                    Dock      = DockStyle.Bottom,
+                    Height    = 68,
+                    BackColor = Color.FromArgb(245, 246, 248)
+                };
 
-                int y = 56 + 20; // below header + top padding
+                var footerDivider = new Panel
+                {
+                    Dock      = DockStyle.Top,
+                    Height    = 1,
+                    BackColor = Color.FromArgb(220, 220, 220)
+                };
 
-                // ── One row per question ──────────────────────────────────────
+                var cancelBtn = new Button
+                {
+                    Text      = "Cancel",
+                    Width     = 90,
+                    Height    = 36,
+                    Top       = 16,
+                    FlatStyle = FlatStyle.Flat,
+                    Font      = new Font("Segoe UI", 9f),
+                    BackColor = Color.White,
+                    ForeColor = Color.FromArgb(60, 60, 60),
+                    Cursor    = Cursors.Hand,
+                    Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+                    DialogResult = DialogResult.Cancel
+                };
+                cancelBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
+                cancelBtn.FlatAppearance.BorderSize  = 1;
+
+                var confirmBtn = new Button
+                {
+                    Text      = "✓  Confirm",
+                    Width     = 120,
+                    Height    = 36,
+                    Top       = 16,
+                    FlatStyle = FlatStyle.Flat,
+                    Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    BackColor = Color.FromArgb(18, 18, 18),
+                    ForeColor = Color.White,
+                    Cursor    = Cursors.Hand,
+                    Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+                    DialogResult = DialogResult.OK
+                };
+                confirmBtn.FlatAppearance.BorderSize = 0;
+
+                // Right-align footer buttons, update on resize
+                footer.Resize += (s, e) =>
+                {
+                    confirmBtn.Left = footer.ClientSize.Width - Pad - 120;
+                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 120 - 8 - 90;
+                };
+
+                footer.Controls.Add(footerDivider);
+                footer.Controls.AddRange(new Control[] { cancelBtn, confirmBtn });
+
+                // ── Scroll panel (fills space between header and footer) ───────
+                var scroll = new Panel
+                {
+                    Dock          = DockStyle.Fill,
+                    AutoScroll    = true,
+                    BackColor     = Color.FromArgb(245, 246, 248),
+                    Padding       = new Padding(0)
+                };
+
+                // Inner panel holds all question rows; wider than scroll so padding works
+                var inner = new Panel
+                {
+                    AutoSize     = false,
+                    BackColor    = Color.FromArgb(245, 246, 248),
+                    Left         = 0,
+                    Top          = 0
+                };
+
+                // Build question rows inside inner
+                int y = 24; // top padding inside scroll area
+
                 foreach (var q in questions)
                 {
+                    // Question label
                     var lbl = new Label
                     {
                         Text      = q.Question,
                         Left      = Pad,
                         Top       = y,
-                        Width     = FormW - Pad * 2 - 16,
-                        Height    = 18,
-                        Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                        ForeColor = Color.FromArgb(60, 60, 60),
-                        AutoSize  = false
+                        Height    = LblH,
+                        Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
+                        ForeColor = Color.FromArgb(50, 50, 50),
+                        AutoSize  = false,
+                        Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                     };
-                    form.Controls.Add(lbl);
-                    y += 22;
+                    inner.Controls.Add(lbl);
+                    y += LblH + 8;
 
                     string defaultStr = q.Default?.ToString() ?? "";
                     Control input;
@@ -87,12 +162,12 @@ namespace BimAiAssistant.UI
                         {
                             Left          = Pad,
                             Top           = y,
-                            Width         = FormW - Pad * 2 - 16,
-                            Height        = 28,
+                            Height        = InpH,
                             DropDownStyle = ComboBoxStyle.DropDownList,
-                            Font          = new Font("Segoe UI", 9.5f),
+                            Font          = new Font("Segoe UI", 10f),
                             BackColor     = Color.White,
-                            FlatStyle     = FlatStyle.Flat
+                            FlatStyle     = FlatStyle.Flat,
+                            Anchor        = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                         };
                         foreach (string choice in q.Choices)
                             combo.Items.Add(choice);
@@ -106,77 +181,59 @@ namespace BimAiAssistant.UI
                         {
                             Left        = Pad,
                             Top         = y,
-                            Width       = FormW - Pad * 2 - 16,
-                            Height      = 28,
+                            Height      = InpH,
                             Text        = defaultStr,
-                            Font        = new Font("Segoe UI", 9.5f),
+                            Font        = new Font("Segoe UI", 10f),
                             BackColor   = Color.White,
                             ForeColor   = Color.FromArgb(20, 20, 20),
-                            BorderStyle = BorderStyle.FixedSingle
+                            BorderStyle = BorderStyle.FixedSingle,
+                            Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                         };
                         input = tb;
                     }
 
-                    form.Controls.Add(input);
+                    inner.Controls.Add(input);
                     inputs.Add((q.Id, input, q.Type ?? "text"));
-                    y += 28 + RowGap;
+                    y += InpH + Gap;
                 }
 
-                // ── Divider ───────────────────────────────────────────────────
-                var divider = new Panel
+                y += 16; // bottom padding
+                inner.Height = y;
+
+                // Keep inner width and all anchored controls in sync with scroll panel width
+                scroll.Resize += (s, e) =>
                 {
-                    Left      = Pad,
-                    Top       = y,
-                    Width     = FormW - Pad * 2 - 16,
-                    Height    = 1,
-                    BackColor = Color.FromArgb(220, 220, 220)
+                    inner.Width = scroll.ClientSize.Width;
+                    foreach (Control c in inner.Controls)
+                    {
+                        if ((c.Anchor & AnchorStyles.Right) != 0)
+                            c.Width = inner.ClientSize.Width - Pad * 2;
+                    }
                 };
-                form.Controls.Add(divider);
-                y += 16;
 
-                // ── Buttons ───────────────────────────────────────────────────
-                var cancelBtn = new Button
-                {
-                    Text      = "Cancel",
-                    Left      = FormW - Pad - 16 - 90 - 8 - 120,
-                    Top       = y,
-                    Width     = 90,
-                    Height    = 34,
-                    FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 9f),
-                    BackColor = Color.White,
-                    ForeColor = Color.FromArgb(60, 60, 60),
-                    Cursor    = Cursors.Hand,
-                    DialogResult = DialogResult.Cancel
-                };
-                cancelBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
-                cancelBtn.FlatAppearance.BorderSize  = 1;
+                scroll.Controls.Add(inner);
 
-                var confirmBtn = new Button
-                {
-                    Text      = "✓  Confirm",
-                    Left      = FormW - Pad - 16 - 120,
-                    Top       = y,
-                    Width     = 120,
-                    Height    = 34,
-                    FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    BackColor = Color.FromArgb(18, 18, 18),
-                    ForeColor = Color.White,
-                    Cursor    = Cursors.Hand,
-                    DialogResult = DialogResult.OK
-                };
-                confirmBtn.FlatAppearance.BorderSize = 0;
+                // ── Assemble (order matters for docking) ──────────────────────
+                // header Dock=Top, footer Dock=Bottom, scroll Dock=Fill
+                form.Controls.Add(scroll);   // Fill — added first
+                form.Controls.Add(footer);   // Bottom
+                form.Controls.Add(header);   // Top — painted last, always on top
 
-                form.Controls.AddRange(new Control[] { divider, cancelBtn, confirmBtn });
-                y += 34 + 20;
-
-                form.Height       = y;
                 form.AcceptButton = confirmBtn;
                 form.CancelButton = cancelBtn;
 
-                // Header is added last so it paints on top
-                form.Controls.Add(header);
+                form.Load += (s, e) =>
+                {
+                    // Force initial layout
+                    inner.Width = scroll.ClientSize.Width;
+                    foreach (Control c in inner.Controls)
+                    {
+                        if ((c.Anchor & AnchorStyles.Right) != 0)
+                            c.Width = inner.ClientSize.Width - Pad * 2;
+                    }
+                    confirmBtn.Left = footer.ClientSize.Width - Pad - 120;
+                    cancelBtn.Left  = footer.ClientSize.Width - Pad - 120 - 8 - 90;
+                };
 
                 if (form.ShowDialog() != DialogResult.OK)
                     return null;
