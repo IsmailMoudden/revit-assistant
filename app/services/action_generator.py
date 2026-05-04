@@ -4,7 +4,7 @@ from pydantic import TypeAdapter, ValidationError
 from app.core.llm import call_llm
 from app.prompts.bim_prompt import SYSTEM_PROMPT
 from app.schemas.actions import BIMAction
-from app.schemas.request import GenerateActionRequest, GenerateActionResponse, Question
+from app.schemas.request import GenerateActionRequest, GenerateActionResponse, Question, ErrorDetail
 
 _action_adapter = TypeAdapter(BIMAction)
 
@@ -54,7 +54,7 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
         parsed["status"] = "needs_clarification"
 
     status = parsed.get("status")
-    if status not in ("ok", "needs_clarification"):
+    if status not in ("ok", "needs_clarification", "error"):
         raise ValueError(f"LLM response missing valid 'status' field.\nRaw output: {raw}")
 
     if status == "needs_clarification":
@@ -68,6 +68,17 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
         return GenerateActionResponse(
             status="needs_clarification",
             questions=questions,
+            raw_llm_output=raw,
+        )
+
+    if status == "error":
+        try:
+            error = ErrorDetail.model_validate(parsed.get("error", {}))
+        except ValidationError as e:
+            raise ValueError(f"Invalid error schema:\n{e}")
+        return GenerateActionResponse(
+            status="error",
+            error=error,
             raw_llm_output=raw,
         )
 

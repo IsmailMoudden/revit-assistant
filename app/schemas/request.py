@@ -51,10 +51,17 @@ class Question(BaseModel):
     type: str  # "text" | "number" | "choice" — kept loose so LLM variants don't fail validation
 
 
+class ErrorDetail(BaseModel):
+    message: str        # human-readable explanation of what went wrong
+    cause: str | None = None    # raw Revit error if available
+    fix: str | None = None      # step-by-step instructions to resolve manually
+
+
 class GenerateActionResponse(BaseModel):
-    status: Literal["ok", "needs_clarification"]
+    status: Literal["ok", "needs_clarification", "error"]
     actions: list[BIMAction] | None = None
     questions: list[Question] | None = None
+    error: ErrorDetail | None = None    # present when status == "error"
     raw_llm_output: str = Field(
         description="Raw LLM string. For debugging/logging only. Never use in plugin logic."
     )
@@ -65,4 +72,6 @@ class GenerateActionResponse(BaseModel):
             raise ValueError("status is 'ok' but 'actions' is missing or empty")
         if self.status == "needs_clarification" and not self.questions:
             raise ValueError("status is 'needs_clarification' but 'questions' is missing or empty")
+        if self.status == "error" and not self.error:
+            raise ValueError("status is 'error' but 'error' field is missing")
         return self
