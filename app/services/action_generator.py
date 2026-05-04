@@ -49,13 +49,20 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
     except json.JSONDecodeError as e:
         raise ValueError(f"LLM returned invalid JSON: {e}\nRaw output: {raw}")
 
+    # Support both "type":"clarification" and "status":"needs_clarification" — normalise here
+    if parsed.get("type") == "clarification":
+        parsed["status"] = "needs_clarification"
+
     status = parsed.get("status")
     if status not in ("ok", "needs_clarification"):
         raise ValueError(f"LLM response missing valid 'status' field.\nRaw output: {raw}")
 
     if status == "needs_clarification":
+        raw_questions = parsed.get("questions", [])
+        if not raw_questions:
+            raise ValueError(f"LLM returned needs_clarification but 'questions' is empty.\nRaw: {raw}")
         try:
-            questions = [Question.model_validate(q) for q in parsed.get("questions", [])]
+            questions = [Question.model_validate(q) for q in raw_questions]
         except ValidationError as e:
             raise ValueError(f"Invalid question schema:\n{e}")
         return GenerateActionResponse(

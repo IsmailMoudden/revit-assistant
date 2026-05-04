@@ -48,14 +48,13 @@ class GenerateActionRequest(BaseModel):
 class Question(BaseModel):
     id: str
     question: str
-    default: Any
-    type: Literal["number", "text", "choice"]
+    type: str  # "text" | "number" | "choice" — kept loose so LLM variants don't fail validation
 
 
 class GenerateActionResponse(BaseModel):
     status: Literal["ok", "needs_clarification"]
-    actions: list[BIMAction] | None = None      # present when status == "ok"
-    questions: list[Question] | None = None     # present when status == "needs_clarification"
+    actions: list[BIMAction] | None = None
+    questions: list[Question] | None = None
     raw_llm_output: str = Field(
         description="Raw LLM string. For debugging/logging only. Never use in plugin logic."
     )
