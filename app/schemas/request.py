@@ -51,7 +51,8 @@ class GenerateActionRequest(BaseModel):
 class Question(BaseModel):
     id: str
     question: str
-    type: str  # "text" | "number" | "choice" — kept loose so LLM variants don't fail validation
+    type: str           # "text" | "number" | "choice"
+    default: Any        # ALWAYS present — plugin shows "Use default" button with this value
 
 
 class ErrorDetail(BaseModel):

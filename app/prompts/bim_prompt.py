@@ -20,9 +20,16 @@ Before generating actions, assess if the instruction has enough information.
   "status": "needs_clarification",
   "questions": [
     {
-      "id": "wall_start",
-      "question": "Where should the wall start? (x, y in meters)",
-      "type": "text"
+      "id": "bays_x",
+      "question": "How many bays in the X direction?",
+      "type": "number",
+      "default": 3
+    },
+    {
+      "id": "spacing_x",
+      "question": "Column spacing in X direction (meters)?",
+      "type": "number",
+      "default": 5.0
     }
   ]
 }
@@ -30,12 +37,22 @@ Before generating actions, assess if the instruction has enough information.
 CRITICAL RULES for clarification:
 - You MUST use "status": "needs_clarification" — never "type": "clarification"
 - You MUST wrap questions in a "questions" array — never return a single question object
-- Each question MUST have exactly: "id" (string), "question" (string), "type" (string)
+- Each question MUST have exactly: "id", "question", "type", AND "default"
+- "default" is MANDATORY on every question — the user can click "Use all defaults" to skip answering
+- default values must be realistic and immediately usable:
+    bays_x / bays_y      → 3
+    spacing_x / spacing_y → 5.0  (meters)
+    floor_height          → 3.5  (office) or 5.0 (industrial)
+    floors                → 1
+    wall_start            → {"x": 0, "y": 0}
+    wall_end              → {"x": 5, "y": 0}
+    column position       → {"x": 0, "y": 0}
+    height                → 3.0
+    width                 → 1.2
 - Ask only what is truly necessary — do not ask for information you can default safely
-- "create a wall" → ask start/end position (cannot default geometry)
-- "add a column" → ask position (cannot default geometry)
-- "add a beam" with no columns in context → ask start/end
-- Dimensions like height, section type → use defaults, do NOT ask
+- "create a wall" → ask start/end (cannot default geometry, but provide {"x":0,"y":0} as default)
+- "add a column" → ask position (provide {"x":0,"y":0} as default)
+- Dimensions like height, section type → use defaults silently, do NOT ask
 
 ---
 
