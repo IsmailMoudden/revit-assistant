@@ -1,5 +1,5 @@
 from typing import Literal, Any
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from app.schemas.actions import BIMAction
 
 
@@ -23,9 +23,18 @@ class BIMContext(BaseModel):
     existing_elements: list[ExistingElement] = []
     levels: list[str] = []
     selected_element_ids: list[str] = []
-    loaded_column_families: list[str] = []  # section names loaded in project e.g. ["HEA200", "HEB240"]
-    loaded_beam_families: list[str] = []    # e.g. ["IPE300", "IPE360"]
-    loaded_wall_types: list[str] = []       # e.g. ["Generic - 200mm", "Basic Wall"]
+    loaded_column_families: list[str] = []
+    loaded_beam_families: list[str] = []
+    loaded_wall_types: list[str] = []
+
+    @field_validator(
+        "existing_elements", "levels", "selected_element_ids",
+        "loaded_column_families", "loaded_beam_families", "loaded_wall_types",
+        mode="before",
+    )
+    @classmethod
+    def null_to_empty_list(cls, v: Any) -> Any:
+        return v if v is not None else []
 
 
 # ── Execution feedback — what happened after the plugin ran the last actions ───
@@ -45,8 +54,13 @@ class GenerateActionRequest(BaseModel):
     selected_level: str = "Level 1"
     answers: dict[str, Any] | None = None
     history: list[ConversationMessage] = []
-    bim_context: BIMContext = BIMContext()             # optional — empty = blind mode
-    execution_results: list[ExecutionResult] = []     # optional — feedback from last run
+    bim_context: BIMContext = BIMContext()
+    execution_results: list[ExecutionResult] = []
+
+    @field_validator("history", "execution_results", mode="before")
+    @classmethod
+    def null_to_empty_list(cls, v: Any) -> Any:
+        return v if v is not None else []
 
 
 class Question(BaseModel):
@@ -74,8 +88,8 @@ class GenerateActionResponse(BaseModel):
 
     @model_validator(mode="after")
     def check_exclusive(self) -> "GenerateActionResponse":
-        if self.status == "ok" and not self.actions:
-            raise ValueError("status is 'ok' but 'actions' is missing or empty")
+        if self.status == "ok" and self.actions is None:
+            raise ValueError("status is 'ok' but 'actions' is missing")
         if self.status == "needs_clarification" and not self.questions:
             raise ValueError("status is 'needs_clarification' but 'questions' is missing or empty")
         if self.status == "error" and not self.error:

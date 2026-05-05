@@ -143,6 +143,20 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
         else:
             actions.append(action)
 
+    if not actions:
+        return GenerateActionResponse(
+            status="needs_clarification",
+            questions=[
+                Question(
+                    id="instruction",
+                    question="I couldn't determine what to create. Can you describe exactly what you want to add to the model?",
+                    type="text",
+                    default="Create a 3x3 structural grid with 5m spacing",
+                )
+            ],
+            raw_llm_output=raw,
+        )
+
     return GenerateActionResponse(
         status="ok",
         actions=actions,
