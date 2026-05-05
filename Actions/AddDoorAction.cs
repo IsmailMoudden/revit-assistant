@@ -9,7 +9,7 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
+        public static long? Execute(Document doc, ActionPayload action, List<string> warnings)
         {
             FamilySymbol symbol = FamilySymbolHelper.Resolve(
                 doc, familyName: null, typeName: null, BuiltInCategory.OST_Doors, warnings);
@@ -24,14 +24,17 @@ namespace BimAiAssistant.Actions
 
             Wall hostWall = ResolveHostWall(doc, action.WallId, x, y, warnings);
 
+            long? lastId = null;
             for (int i = 0; i < count; i++)
             {
-                doc.Create.NewFamilyInstance(
+                var inst = doc.Create.NewFamilyInstance(
                     new XYZ(x + i * step, y, z),
                     symbol,
                     hostWall,
                     Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                lastId = inst.Id.Value;
             }
+            return lastId;
         }
 
         private static Wall ResolveHostWall(
@@ -56,7 +59,6 @@ namespace BimAiAssistant.Actions
 
             Wall nearest = walls[0];
             double dist  = nearest.Location is LocationCurve lc2 ? lc2.Curve.Distance(pt) : 0;
-
             bool ambiguous = walls.Count > 1 &&
                              walls[1].Location is LocationCurve lc3 &&
                              System.Math.Abs(lc3.Curve.Distance(pt) - dist) < 0.3 * MtoFt;

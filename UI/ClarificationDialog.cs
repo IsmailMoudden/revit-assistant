@@ -97,12 +97,50 @@ namespace BimAiAssistant.UI
                 };
                 confirmBtn.FlatAppearance.BorderSize = 0;
 
+                var defaultsBtn = new Button
+                {
+                    Text      = "Use defaults",
+                    Width     = 110,
+                    Height    = 36,
+                    Top       = 16,
+                    Left      = Pad,
+                    FlatStyle = FlatStyle.Flat,
+                    Font      = new Font("Segoe UI", 9f),
+                    BackColor = Color.White,
+                    ForeColor = Color.FromArgb(60, 60, 60),
+                    Cursor    = Cursors.Hand,
+                    Anchor    = AnchorStyles.Top | AnchorStyles.Left
+                };
+                defaultsBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
+                defaultsBtn.FlatAppearance.BorderSize  = 1;
+
                 footer.Resize += (s, e) =>
                 {
                     confirmBtn.Left = footer.ClientSize.Width - Pad - 110;
                     cancelBtn.Left  = footer.ClientSize.Width - Pad - 110 - 10 - 96;
                 };
-                footer.Controls.AddRange(new Control[] { cancelBtn, confirmBtn });
+                footer.Controls.AddRange(new Control[] { defaultsBtn, cancelBtn, confirmBtn });
+
+                // "Use defaults" resets every input to its question's default value then confirms
+                defaultsBtn.Click += (s, e) =>
+                {
+                    foreach (var (id, control, type) in inputs)
+                    {
+                        ClarificationQuestion q = questions.Find(x => x.Id == id);
+                        string def = q?.Default?.ToString() ?? "";
+                        if (control is ComboBox cb)
+                        {
+                            int idx = cb.Items.IndexOf(def);
+                            cb.SelectedIndex = idx >= 0 ? idx : 0;
+                        }
+                        else if (control is TextBox tb)
+                        {
+                            tb.Text = def;
+                        }
+                    }
+                    form.DialogResult = DialogResult.OK;
+                    form.Close();
+                };
 
                 // ── Scrollable body ───────────────────────────────────────────
                 var scroll = new Panel

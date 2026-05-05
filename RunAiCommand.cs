@@ -47,38 +47,68 @@ namespace BimAiAssistant
             _sessionHistory.Add(new ConversationMessage { Role = "user",      Content = instruction });
             _sessionHistory.Add(new ConversationMessage { Role = "assistant", Content = response.RawLlmOutput ?? "" });
 
-            // Execute all actions in one atomic transaction
-            int executed = 0;
-            var localWarnings = new List<string>();
-            using (var tx = new Transaction(doc, $"BIM AI — {response.Actions.Count} action(s)"))
+            var allWarnings  = new List<string>();
+            int totalCreated = 0;
+
+            if (response.Warnings != null) allWarnings.AddRange(response.Warnings);
+
+            // ── First execution pass ──────────────────────────────────────────
+            List<ExecutionResult> execResults = RunExecutionPass(
+                doc, uiApp, instruction, response.Actions, allWarnings, out int pass1Count);
+            totalCreated += pass1Count;
+
+            // ── Auto-correction: if any action failed, send results to backend ─
+            bool hasErrors = execResults.Exists(r => r.Status == "error");
+            if (hasErrors)
             {
-                tx.Start();
-                try
+                var retryRequest = new BimRequest
                 {
-                    executed = ActionDispatcher.ExecuteAll(doc, uiApp, response.Actions, localWarnings);
-                    tx.Commit();
-                }
+                    Instruction      = instruction,
+                    SelectedLevel    = selectedLevel,
+                    History          = new List<ConversationMessage>(_sessionHistory),
+                    BimContext       = bimContext,
+                    ExecutionResults = execResults
+                };
+
+                ActionResponse retryResponse;
+                try { retryResponse = BimApiClient.Post(retryRequest); }
                 catch (Exception ex)
                 {
-                    tx.RollBack();
-                    TaskDialog.Show("BIM AI — Execution Error",
-                        $"All actions rolled back.\n\n{ex.Message}");
-                    return Result.Failed;
+                    TaskDialog.Show("BIM AI — Network Error (retry)", ex.Message);
+                    retryResponse = null;
+                }
+
+                if (retryResponse != null)
+                {
+                    if (retryResponse.Warnings != null) allWarnings.AddRange(retryResponse.Warnings);
+
+                    if (retryResponse.Status == "ok" &&
+                        retryResponse.Actions != null && retryResponse.Actions.Count > 0)
+                    {
+                        // Backend corrected — execute the fixed actions
+                        RunExecutionPass(doc, uiApp, instruction,
+                            retryResponse.Actions, allWarnings, out int pass2Count);
+                        totalCreated += pass2Count;
+                        response = retryResponse; // use corrected response for summary
+                    }
+                    else if (retryResponse.Status == "error")
+                    {
+                        string msg = retryResponse.Error?.Message ?? "(no message)";
+                        string fix = retryResponse.Error?.Fix;
+                        TaskDialog.Show("BIM AI — Error",
+                            fix != null ? $"{msg}\n\nSuggestion: {fix}" : msg);
+                    }
                 }
             }
 
             string summary = BuildSummary(response);
             InputDialog.RecordAction(instruction, summary);
 
-            // Merge backend warnings (section substitutions) + local warnings (family/level fallbacks)
-            var allWarnings = new List<string>();
-            if (response.Warnings != null) allWarnings.AddRange(response.Warnings);
-            allWarnings.AddRange(localWarnings);
             if (allWarnings.Count > 0)
                 WarningsDialog.Show(allWarnings);
 
             TaskDialog.Show("BIM AI — Done",
-                $"{executed} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");
+                $"{totalCreated} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");
 
             return Result.Succeeded;
         }
@@ -177,6 +207,25 @@ namespace BimAiAssistant
         // ── Helpers ───────────────────────────────────────────────────────────
 
         public static void ClearHistory() => _sessionHistory.Clear();
+
+        private static List<ExecutionResult> RunExecutionPass(
+            Document doc,
+            UIApplication uiApp,
+            string instruction,
+            List<ActionPayload> actions,
+            List<string> warnings,
+            out int successCount)
+        {
+            List<ExecutionResult> results;
+            using (var tx = new Transaction(doc, $"BIM AI — {instruction}"))
+            {
+                tx.Start();
+                results = ActionDispatcher.ExecuteAll(doc, uiApp, actions, warnings);
+                tx.Commit();
+            }
+            successCount = results.FindAll(r => r.Status == "success").Count;
+            return results;
+        }
 
         private static BimContext BuildBimContext(Document doc, UIDocument uiDoc)
         {

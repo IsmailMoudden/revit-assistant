@@ -9,13 +9,10 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
+        public static long? Execute(Document doc, ActionPayload action, List<string> warnings)
         {
-            string familyHint = action.Section ?? action.FamilyName;
-            string typeHint   = action.Section ?? action.TypeName;
-
             FamilySymbol symbol = FamilySymbolHelper.Resolve(
-                doc, familyHint, typeHint, BuiltInCategory.OST_StructuralColumns, warnings);
+                doc, action.Section, action.Section, BuiltInCategory.OST_StructuralColumns, warnings);
 
             if (!symbol.IsActive) symbol.Activate();
 
@@ -32,6 +29,8 @@ namespace BimAiAssistant.Actions
 
             double height = (action.Height ?? 3.0) * MtoFt;
             column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM)?.Set(height);
+
+            return column.Id.Value;
         }
     }
 }

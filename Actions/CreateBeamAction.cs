@@ -9,13 +9,10 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
+        public static long? Execute(Document doc, ActionPayload action, List<string> warnings)
         {
-            string familyHint = action.Section ?? action.FamilyName;
-            string typeHint   = action.Section ?? action.TypeName;
-
             FamilySymbol symbol = FamilySymbolHelper.Resolve(
-                doc, familyHint, typeHint, BuiltInCategory.OST_StructuralFraming, warnings);
+                doc, action.Section, action.Section, BuiltInCategory.OST_StructuralFraming, warnings);
 
             if (!symbol.IsActive) symbol.Activate();
 
@@ -33,7 +30,9 @@ namespace BimAiAssistant.Actions
             double ez = (action.End?.Z   ?? 0) * MtoFt;
 
             var line = Line.CreateBound(new XYZ(sx, sy, sz), new XYZ(ex, ey, ez));
-            doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
+            FamilyInstance beam = doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
+
+            return beam.Id.Value;
         }
     }
 }

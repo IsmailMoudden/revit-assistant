@@ -8,7 +8,7 @@ namespace BimAiAssistant.Actions
     {
         private const double MtoFt = 3.28084;
 
-        public static void Execute(Document doc, ActionPayload action, List<string> warnings)
+        public static long? Execute(Document doc, ActionPayload action, List<string> warnings)
         {
             double startX = (action.Start?.X ?? 0) * MtoFt;
             double startY = (action.Start?.Y ?? 0) * MtoFt;
@@ -25,6 +25,8 @@ namespace BimAiAssistant.Actions
 
             Wall wall = Wall.Create(doc, line, level.Id, structural: false);
             wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)?.Set(height);
+
+            return wall.Id.Value;
         }
     }
 }

@@ -8,11 +8,21 @@ namespace BimAiAssistant.Models
 
     public class BimRequest
     {
-        [JsonProperty("instruction")]    public string                     Instruction   { get; set; }
-        [JsonProperty("selected_level")] public string                     SelectedLevel { get; set; }
-        [JsonProperty("answers")]        public Dictionary<string, object> Answers       { get; set; }  // null on first call
-        [JsonProperty("history")]        public List<ConversationMessage>  History       { get; set; }
-        [JsonProperty("bim_context")]    public BimContext                 BimContext    { get; set; }
+        [JsonProperty("instruction")]        public string                     Instruction       { get; set; }
+        [JsonProperty("selected_level")]     public string                     SelectedLevel     { get; set; }
+        [JsonProperty("answers")]            public Dictionary<string, object> Answers           { get; set; }
+        [JsonProperty("history")]            public List<ConversationMessage>  History           { get; set; }
+        [JsonProperty("bim_context")]        public BimContext                 BimContext        { get; set; }
+        [JsonProperty("execution_results")]  public List<ExecutionResult>      ExecutionResults  { get; set; }
+    }
+
+    public class ExecutionResult
+    {
+        [JsonProperty("action")]          public string      Action         { get; set; }
+        [JsonProperty("status")]          public string      Status         { get; set; }  // "success" | "error"
+        [JsonProperty("revit_id")]        public long?       RevitId        { get; set; }  // set on success
+        [JsonProperty("reason")]          public string      Reason         { get; set; }  // set on error
+        [JsonProperty("original_params")] public ActionPayload OriginalParams { get; set; }
     }
 
     public class BimContext
@@ -89,12 +99,8 @@ namespace BimAiAssistant.Models
         [JsonProperty("count")]    public int?     Count    { get; set; }
         [JsonProperty("spacing")]  public double?  Spacing  { get; set; }
 
-        // create_column / create_beam
-        // "section" = structural profile name e.g. "HEA200", "IPE300"
-        [JsonProperty("section")]     public string Section     { get; set; }
-        // legacy fields kept for compatibility
-        [JsonProperty("family_name")] public string FamilyName  { get; set; }
-        [JsonProperty("type_name")]   public string TypeName    { get; set; }
+        // create_column / create_beam — backend always resolves section before responding
+        [JsonProperty("section")] public string Section { get; set; }
 
         [JsonExtensionData]
         public Dictionary<string, JToken> Extras { get; set; }

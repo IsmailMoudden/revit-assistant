@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -8,27 +9,56 @@ namespace BimAiAssistant.Actions
     public static class ActionDispatcher
     {
         /// <summary>
-        /// Executes all actions inside an open Transaction.
-        /// Returns count of executed actions and collects all fallback warnings
-        /// into <paramref name="warnings"/> — no TaskDialogs are shown mid-execution.
-        /// Throws on unrecoverable error; caller must roll back.
+        /// Executes each action in its own sub-transaction so a single failure
+        /// doesn't roll back the whole batch. Must be called inside an open Transaction.
+        /// Returns one ExecutionResult per action (status "success" or "error").
+        /// Fallback warnings are appended to <paramref name="warnings"/>.
         /// </summary>
-        public static int ExecuteAll(
+        public static List<ExecutionResult> ExecuteAll(
             Document doc,
             UIApplication uiApp,
             List<ActionPayload> actions,
             List<string> warnings)
         {
-            int executed = 0;
+            var results = new List<ExecutionResult>();
+
             foreach (ActionPayload action in actions)
             {
-                ExecuteOne(doc, uiApp, action, warnings);
-                executed++;
+                var actionWarnings = new List<string>();
+                long? revitId = null;
+                string errorReason = null;
+
+                using (var sub = new SubTransaction(doc))
+                {
+                    sub.Start();
+                    try
+                    {
+                        revitId = ExecuteOne(doc, uiApp, action, actionWarnings);
+                        sub.Commit();
+                        warnings.AddRange(actionWarnings);
+                    }
+                    catch (Exception ex)
+                    {
+                        sub.RollBack();
+                        errorReason = ex.Message;
+                    }
+                }
+
+                results.Add(new ExecutionResult
+                {
+                    Action         = action.ActionType,
+                    Status         = errorReason == null ? "success" : "error",
+                    RevitId        = revitId,
+                    Reason         = errorReason,
+                    OriginalParams = action
+                });
             }
-            return executed;
+
+            return results;
         }
 
-        private static void ExecuteOne(
+        // Returns the ElementId.Value of the created element (for the execution_results payload).
+        private static long? ExecuteOne(
             Document doc,
             UIApplication uiApp,
             ActionPayload action,
@@ -37,28 +67,23 @@ namespace BimAiAssistant.Actions
             switch (action.ActionType)
             {
                 case "create_wall":
-                    CreateWallAction.Execute(doc, action, warnings);
-                    break;
+                    return CreateWallAction.Execute(doc, action, warnings);
 
                 case "create_column":
-                    CreateColumnAction.Execute(doc, action, warnings);
-                    break;
+                    return CreateColumnAction.Execute(doc, action, warnings);
 
                 case "create_beam":
-                    CreateBeamAction.Execute(doc, action, warnings);
-                    break;
+                    return CreateBeamAction.Execute(doc, action, warnings);
 
                 case "add_window":
-                    AddWindowAction.Execute(doc, action, warnings);
-                    break;
+                    return AddWindowAction.Execute(doc, action, warnings);
 
                 case "add_door":
-                    AddDoorAction.Execute(doc, action, warnings);
-                    break;
+                    return AddDoorAction.Execute(doc, action, warnings);
 
                 default:
-                    warnings.Add($"Action type \"{action.ActionType}\" is not supported and was skipped.");
-                    break;
+                    throw new Exception(
+                        $"Action type \"{action.ActionType}\" is not supported.");
             }
         }
     }
