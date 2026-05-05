@@ -11,12 +11,17 @@ class ConversationMessage(BaseModel):
 # ── BIM Context — snapshot of the Revit model sent by the plugin ───────────────
 
 class ExistingElement(BaseModel):
-    id: str                          # Revit element ID, used to reference in instructions
-    type: str                        # action type: "create_column", "create_wall", etc.
-    position: dict[str, float] | None = None   # for point elements (columns, doors)
-    start: dict[str, float] | None = None      # for linear elements (walls, beams)
+    id: str
+    type: str
+    position: dict[str, float] | None = None
+    start: dict[str, float] | None = None
     end: dict[str, float] | None = None
     level: str | None = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id_to_str(cls, v: Any) -> str:
+        return str(v)
 
 
 class BIMContext(BaseModel):
@@ -28,13 +33,20 @@ class BIMContext(BaseModel):
     loaded_wall_types: list[str] = []
 
     @field_validator(
-        "existing_elements", "levels", "selected_element_ids",
+        "existing_elements", "levels",
         "loaded_column_families", "loaded_beam_families", "loaded_wall_types",
         mode="before",
     )
     @classmethod
     def null_to_empty_list(cls, v: Any) -> Any:
         return v if v is not None else []
+
+    @field_validator("selected_element_ids", mode="before")
+    @classmethod
+    def coerce_element_ids(cls, v: Any) -> list:
+        if v is None:
+            return []
+        return [str(item) for item in v]
 
 
 # ── Execution feedback — what happened after the plugin ran the last actions ───
@@ -61,6 +73,11 @@ class GenerateActionRequest(BaseModel):
     @classmethod
     def null_to_empty_list(cls, v: Any) -> Any:
         return v if v is not None else []
+
+    @field_validator("selected_level", mode="before")
+    @classmethod
+    def coerce_level_to_str(cls, v: Any) -> str:
+        return str(v) if v is not None else "Level 1"
 
 
 class Question(BaseModel):
