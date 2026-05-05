@@ -31,7 +31,16 @@ def _build_messages(request: GenerateActionRequest) -> list[dict]:
 
     if request.execution_results:
         results = [r.model_dump() for r in request.execution_results]
-        parts.append(f"Results from last execution: {json.dumps(results)}")
+        ctx = request.bim_context
+        auto_fix_hint = {}
+        if ctx.loaded_column_families:
+            auto_fix_hint["use_column_section"] = ctx.loaded_column_families[0]
+        if ctx.loaded_beam_families:
+            auto_fix_hint["use_beam_section"] = ctx.loaded_beam_families[0]
+        if ctx.levels:
+            auto_fix_hint["available_levels"] = ctx.levels
+        hint_str = f" Auto-fix hint: {json.dumps(auto_fix_hint)}" if auto_fix_hint else ""
+        parts.append(f"Results from last execution: {json.dumps(results)}.{hint_str}")
 
     if request.answers:
         parts.append(f"Answers to previous questions: {json.dumps(request.answers)}")

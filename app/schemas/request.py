@@ -31,10 +31,11 @@ class BIMContext(BaseModel):
 # ── Execution feedback — what happened after the plugin ran the last actions ───
 
 class ExecutionResult(BaseModel):
-    action: str                      # action type that was executed
+    action: str                          # action type that was executed
     status: Literal["success", "error"]
-    revit_id: str | None = None      # Revit element ID if created successfully
-    reason: str | None = None        # error message if status == "error"
+    revit_id: str | None = None          # Revit element ID if created successfully
+    reason: str | None = None            # raw Revit error message
+    original_params: dict | None = None  # the exact params that were sent — LLM uses this to fix
 
 
 # ── Request ────────────────────────────────────────────────────────────────────
