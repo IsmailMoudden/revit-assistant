@@ -46,16 +46,24 @@ class CreateColumnAction(BaseModel):
     action: Literal["create_column"]
     position: Position
     height: float = Field(default=3.0, gt=0, le=500)
-    section: str = "HEA200"
+    section: str | None = "HEA200"  # null → backend uses Eurocode default
     level: str = "Level 1"
+
+    @property
+    def resolved_section(self) -> str:
+        return self.section or "HEA200"
 
 
 class CreateBeamAction(BaseModel):
     action: Literal["create_beam"]
     start: Position
     end: Position
-    section: str = "IPE300"
+    section: str | None = "IPE300"  # null → backend uses Eurocode default
     level: str = "Level 1"
+
+    @property
+    def resolved_section(self) -> str:
+        return self.section or "IPE300"
 
 
 # ── Parametric ─────────────────────────────────────────────────────────────────

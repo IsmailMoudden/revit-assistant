@@ -3,7 +3,8 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.core.llm import call_llm
 from app.prompts.bim_prompt import SYSTEM_PROMPT
-from app.schemas.actions import BIMAction, CreateGridAction
+from app.schemas.actions import BIMAction, CreateGridAction, CreateColumnAction, CreateBeamAction
+from app.services.eurocode import select_column_section, select_beam_section, best_available_column, best_available_beam
 from app.schemas.request import GenerateActionRequest, GenerateActionResponse, Question, ErrorDetail
 from app.services.grid_expander import expand_grid
 
@@ -101,6 +102,24 @@ def generate_bim_action(request: GenerateActionRequest) -> GenerateActionRespons
             action = _action_adapter.validate_python(item)
         except ValidationError as e:
             raise ValueError(f"Action #{i} failed schema validation:\n{e}\nItem: {item}")
+
+        # Resolve null sections — LLM sometimes returns null, never send null to plugin
+        if isinstance(action, CreateColumnAction) and action.section is None:
+            loaded = request.bim_context.loaded_column_families
+            ideal = select_column_section(action.height)
+            resolved, w = best_available_column(ideal, loaded)
+            action = action.model_copy(update={"section": resolved})
+            if w:
+                warnings.append(w)
+
+        elif isinstance(action, CreateBeamAction) and action.section is None:
+            loaded = request.bim_context.loaded_beam_families
+            span = abs(action.end.x - action.start.x) or abs(action.end.y - action.start.y) or 5.0
+            ideal = select_beam_section(span)
+            resolved, w = best_available_beam(ideal, loaded)
+            action = action.model_copy(update={"section": resolved})
+            if w:
+                warnings.append(w)
 
         if isinstance(action, CreateGridAction):
             expanded, grid_warnings = expand_grid(
