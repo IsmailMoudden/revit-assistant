@@ -1,5 +1,5 @@
 from typing import Literal, Any
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from app.schemas.actions import BIMAction
 
 
@@ -11,6 +11,8 @@ class ConversationMessage(BaseModel):
 # ── BIM Context — snapshot of the Revit model sent by the plugin ───────────────
 
 class ExistingElement(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     id: str
     type: str
     position: dict[str, float] | None = None
@@ -52,16 +54,25 @@ class BIMContext(BaseModel):
 # ── Execution feedback — what happened after the plugin ran the last actions ───
 
 class ExecutionResult(BaseModel):
-    action: str                          # action type that was executed
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    action: str
     status: Literal["success", "error"]
-    revit_id: str | None = None          # Revit element ID if created successfully
-    reason: str | None = None            # raw Revit error message
-    original_params: dict | None = None  # the exact params that were sent — LLM uses this to fix
+    revit_id: str | None = None
+    reason: str | None = None
+    original_params: dict | None = None
+
+    @field_validator("revit_id", mode="before")
+    @classmethod
+    def coerce_revit_id(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
 
 
 # ── Request ────────────────────────────────────────────────────────────────────
 
 class GenerateActionRequest(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     instruction: str
     selected_level: str = "Level 1"
     answers: dict[str, Any] | None = None
