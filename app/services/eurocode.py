@@ -1,5 +1,6 @@
 """
-Eurocode-based section selection rules (EN 1993-1-1 steel, EN 1992-1-1 concrete).
+Heuristic section suggestions for preliminary model geometry.
+These tables do not perform Eurocode checks or establish structural adequacy.
 All spans in meters. Returns standard European steel section names.
 """
 

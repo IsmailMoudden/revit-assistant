@@ -1,18 +1,23 @@
 from openai import OpenAI
 from app.core.config import settings
 
-# OpenRouter is OpenAI-compatible — we just override base_url and api_key
-client = OpenAI(
-    api_key=settings.openrouter_api_key,
-    base_url=settings.openrouter_base_url,
-)
-
-
 def call_llm(system_prompt: str, messages: list[dict]) -> str:
-    response = client.chat.completions.create(
-        model=settings.openrouter_model,
-        messages=[{"role": "system", "content": system_prompt}, *messages],
-        response_format={"type": "json_object"},
-        temperature=0,
-    )
-    return response.choices[0].message.content
+    if not settings.llm_model.strip():
+        raise ValueError("Set LLM_MODEL to the model identifier offered by your provider.")
+    options = {"response_format": {"type": "json_object"}} if settings.llm_json_mode else {}
+    with OpenAI(
+        api_key=settings.llm_api_key.get_secret_value() or "local",
+        base_url=settings.llm_base_url,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=0,
+    ) as client:
+        response = client.chat.completions.create(
+            model=settings.llm_model,
+            messages=[{"role": "system", "content": system_prompt}, *messages],
+            temperature=0,
+            **options,
+        )
+    content = response.choices[0].message.content
+    if not content:
+        raise ValueError("The provider returned an empty response.")
+    return content

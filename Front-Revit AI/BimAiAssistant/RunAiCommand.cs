@@ -1,0 +1,317 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.UI;
+using BimAiAssistant.Actions;
+using BimAiAssistant.Api;
+using BimAiAssistant.Models;
+using BimAiAssistant.UI;
+
+namespace BimAiAssistant
+{
+    [Transaction(TransactionMode.Manual)]
+    [Regeneration(RegenerationOption.Manual)]
+    public class RunAiCommand : IExternalCommand
+    {
+        private const int MaxClarificationRounds = 5;
+
+        // Session history — stateless backend, plugin owns the conversation
+        // Persists for the lifetime of the Revit session; cleared by "Clear" in the dialog
+        private static readonly List<ConversationMessage> _sessionHistory =
+            new List<ConversationMessage>();
+
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiApp = commandData.Application;
+            UIDocument    uiDoc = uiApp.ActiveUIDocument;
+            Document      doc   = uiDoc.Document;
+
+            string selectedLevel = ResolveActiveLevel(uiDoc, doc);
+            BimContext bimContext = BuildBimContext(doc, uiDoc);
+
+            string instruction = InputDialog.Show();
+            if (instruction == null)
+                return Result.Cancelled;
+
+            ActionResponse response = RunClarificationLoop(
+                instruction, selectedLevel, bimContext, out bool cancelled);
+
+            if (cancelled) return Result.Cancelled;
+            if (response  == null) return Result.Failed;
+
+            // Append to session history AFTER a successful round-trip
+            _sessionHistory.Add(new ConversationMessage { Role = "user",      Content = instruction });
+            _sessionHistory.Add(new ConversationMessage { Role = "assistant", Content = response.RawLlmOutput ?? "" });
+
+            var allWarnings  = new List<string>();
+            int totalCreated = 0;
+
+            if (response.Warnings != null) allWarnings.AddRange(response.Warnings);
+
+            // ── First execution pass ──────────────────────────────────────────
+            List<ExecutionResult> execResults = RunExecutionPass(
+                doc, uiApp, instruction, response.Actions, allWarnings, out int pass1Count);
+            totalCreated += pass1Count;
+
+            // ── Auto-correction: if any action failed, send results to backend ─
+            bool hasErrors = execResults.Exists(r => r.Status == "error");
+            if (hasErrors)
+            {
+                var retryRequest = new BimRequest
+                {
+                    Instruction      = instruction,
+                    SelectedLevel    = selectedLevel,
+                    History          = new List<ConversationMessage>(_sessionHistory),
+                    BimContext       = bimContext,
+                    ExecutionResults = execResults
+                };
+
+                ActionResponse retryResponse;
+                try { retryResponse = BimApiClient.Post(retryRequest); }
+                catch (Exception ex)
+                {
+                    TaskDialog.Show("BIM AI — Network Error (retry)", ex.Message);
+                    retryResponse = null;
+                }
+
+                if (retryResponse != null)
+                {
+                    if (retryResponse.Warnings != null) allWarnings.AddRange(retryResponse.Warnings);
+
+                    if (retryResponse.Status == "ok" &&
+                        retryResponse.Actions != null && retryResponse.Actions.Count > 0)
+                    {
+                        // Backend corrected — execute the fixed actions
+                        RunExecutionPass(doc, uiApp, instruction,
+                            retryResponse.Actions, allWarnings, out int pass2Count);
+                        totalCreated += pass2Count;
+                        response = retryResponse; // use corrected response for summary
+                    }
+                    else if (retryResponse.Status == "error")
+                    {
+                        string msg = retryResponse.Error?.Message ?? "(no message)";
+                        string fix = retryResponse.Error?.Fix;
+                        TaskDialog.Show("BIM AI — Error",
+                            fix != null ? $"{msg}\n\nSuggestion: {fix}" : msg);
+                    }
+                }
+            }
+
+            string summary = BuildSummary(response);
+            InputDialog.RecordAction(instruction, summary);
+
+            if (allWarnings.Count > 0)
+                WarningsDialog.Show(allWarnings);
+
+            TaskDialog.Show("BIM AI — Done",
+                $"{totalCreated} element(s) created.\n\n{summary}\n\nInstruction: {instruction}");
+
+            return Result.Succeeded;
+        }
+
+        // ── Clarification loop ────────────────────────────────────────────────
+
+        private ActionResponse RunClarificationLoop(
+            string instruction, string selectedLevel, BimContext bimContext, out bool cancelled)
+        {
+            cancelled = false;
+
+            // First call — no answers yet
+            var request = new BimRequest
+            {
+                Instruction   = instruction,
+                SelectedLevel = selectedLevel,
+                Answers       = null,
+                History       = new List<ConversationMessage>(_sessionHistory),
+                BimContext    = bimContext
+            };
+
+            ActionResponse response;
+            try { response = BimApiClient.Post(request); }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("BIM AI — Network Error", ex.Message);
+                return null;
+            }
+
+            for (int round = 0; round < MaxClarificationRounds; round++)
+            {
+                if (response.Status == "ok")
+                {
+                    if (response.Actions == null || response.Actions.Count == 0)
+                    {
+                        TaskDialog.Show("BIM AI — Error",
+                            "Backend returned status 'ok' but no actions.\n\n" +
+                            (response.RawLlmOutput ?? "(empty)"));
+                        return null;
+                    }
+                    return response;
+                }
+
+                if (response.Status == "needs_clarification")
+                {
+                    if (response.Questions == null || response.Questions.Count == 0)
+                    {
+                        TaskDialog.Show("BIM AI — Error",
+                            "Backend requested clarification but provided no questions.");
+                        return null;
+                    }
+
+                    Dictionary<string, object> answers = ClarificationDialog.Show(response.Questions);
+                    if (answers == null) { cancelled = true; return null; }
+
+                    request = new BimRequest
+                    {
+                        Instruction   = instruction,
+                        SelectedLevel = selectedLevel,
+                        Answers       = answers,
+                        History       = new List<ConversationMessage>(_sessionHistory),
+                        BimContext    = bimContext
+                    };
+
+                    try { response = BimApiClient.Post(request); }
+                    catch (Exception ex)
+                    {
+                        TaskDialog.Show("BIM AI — Network Error", ex.Message);
+                        return null;
+                    }
+                    continue;
+                }
+
+                if (response.Status == "error")
+                {
+                    string msg = response.Error?.Message ?? "(no message)";
+                    string fix = response.Error?.Fix;
+                    TaskDialog.Show("BIM AI — Error",
+                        fix != null ? $"{msg}\n\nSuggestion: {fix}" : msg);
+                    return null;
+                }
+
+                // Unknown status
+                TaskDialog.Show("BIM AI — Error",
+                    $"Unexpected backend status: \"{response.Status}\".\n\n" +
+                    (response.RawLlmOutput ?? "(no raw output)"));
+                return null;
+            }
+
+            TaskDialog.Show("BIM AI — Error",
+                $"Clarification loop did not resolve after {MaxClarificationRounds} rounds.\n" +
+                "Try rephrasing your instruction.");
+            return null;
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+
+        public static void ClearHistory() => _sessionHistory.Clear();
+
+        private static List<ExecutionResult> RunExecutionPass(
+            Document doc,
+            UIApplication uiApp,
+            string instruction,
+            List<ActionPayload> actions,
+            List<string> warnings,
+            out int successCount)
+        {
+            List<ExecutionResult> results;
+            using (var tx = new Transaction(doc, $"BIM AI — {instruction}"))
+            {
+                tx.Start();
+                results = ActionDispatcher.ExecuteAll(doc, uiApp, actions, warnings);
+                tx.Commit();
+            }
+            successCount = results.FindAll(r => r.Status == "success").Count;
+            return results;
+        }
+
+        private static BimContext BuildBimContext(Document doc, UIDocument uiDoc)
+        {
+            var columnFamilies = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_StructuralColumns)
+                .Cast<FamilySymbol>()
+                .Select(fs => fs.Family.Name)
+                .Distinct()
+                .ToList();
+
+            var beamFamilies = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .Cast<FamilySymbol>()
+                .Select(fs => fs.Family.Name)
+                .Distinct()
+                .ToList();
+
+            var wallTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(WallType))
+                .Cast<WallType>()
+                .Select(wt => wt.Name)
+                .ToList();
+
+            var levels = new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .OrderBy(l => l.Elevation)
+                .Select(l => l.Name)
+                .ToList();
+
+            var selectedIds = uiDoc.Selection.GetElementIds()
+                .Select(id => id.Value)
+                .ToList();
+
+            return new BimContext
+            {
+                ExistingElements     = new List<object>(),
+                Levels               = levels,
+                SelectedElementIds   = selectedIds,
+                LoadedColumnFamilies = columnFamilies,
+                LoadedBeamFamilies   = beamFamilies,
+                LoadedWallTypes      = wallTypes
+            };
+        }
+
+        private static string ResolveActiveLevel(UIDocument uiDoc, Document doc)
+        {
+            try
+            {
+                if (uiDoc.ActiveView?.GenLevel != null)
+                    return uiDoc.ActiveView.GenLevel.Name;
+            }
+            catch { }
+
+            try
+            {
+                return new FilteredElementCollector(doc)
+                    .OfClass(typeof(Level))
+                    .Cast<Level>()
+                    .OrderBy(l => l.Elevation)
+                    .FirstOrDefault()?.Name ?? "Level 1";
+            }
+            catch { return "Level 1"; }
+        }
+
+        private static string BuildSummary(ActionResponse response)
+        {
+            var sb = new StringBuilder();
+            foreach (var g in response.Actions.GroupBy(a => a.ActionType).OrderBy(g => g.Key))
+                sb.AppendLine($"• {ActionLabel(g.Key)} × {g.Count()}");
+            return sb.ToString().TrimEnd();
+        }
+
+        private static string ActionLabel(string t)
+        {
+            switch (t)
+            {
+                case "create_wall":   return "Wall";
+                case "create_column": return "Column";
+                case "create_beam":   return "Beam";
+                case "add_window":    return "Window";
+                case "add_door":      return "Door";
+                default:              return t;
+            }
+        }
+    }
+}

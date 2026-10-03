@@ -8,3 +8,13 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+.venv/
+.env.*
+!.env.example
+**/bin/
+**/obj/
+*.user
+*.suo
+.dist/
+scripts/rewrite_history.py
+*.zip

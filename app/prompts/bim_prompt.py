@@ -154,7 +154,7 @@ Only return status "error" if the fix requires human intervention (permissions, 
   "base_level": "Level 1"
 }
 IMPORTANT: set column_section / beam_section_x / beam_section_y to null unless
-the user explicitly specifies them — the backend selects sections via Eurocode rules.
+the user explicitly specifies them — the backend suggests sections using heuristic tables.
 
 ### create_column  ← only for single isolated columns
 { "action": "create_column", "position": {"x": 0, "y": 0, "z": 0}, "height": 3.0, "section": "HEA200", "level": "Level 1" }
@@ -181,7 +181,7 @@ the user explicitly specifies them — the backend selects sections via Eurocode
 
 ## Eurocode section selection — when to ask vs when to use null
 
-The backend auto-selects sections from Eurocode EN 1993-1-1 when you pass null.
+The backend suggests sections using heuristic tables when you pass null. These are not structural calculations and do not establish Eurocode compliance.
 Set sections to null UNLESS the user explicitly names a section (e.g. "HEA240").
 
 If the user says something vague like "standard office building" or "light industrial"
@@ -193,7 +193,7 @@ Examples of when to ask:
 - "heavy industrial frame" → ask span (heavy loads need larger sections)
 
 Examples of when NOT to ask (use defaults):
-- section type → null (Eurocode handles it)
+- section type → null (backend supplies a preliminary suggestion)
 - floor height → default 3.5m for offices, 5.0m for industrial
 - origin → default 0,0
 
