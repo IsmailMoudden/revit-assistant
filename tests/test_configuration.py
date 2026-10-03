@@ -26,12 +26,14 @@ class ConfigurationTests(unittest.TestCase):
             client.chat.completions.create.return_value.choices[0].message.content = '{}'
             with patch("app.core.llm.OpenAI") as factory, \
                  patch.object(settings, "llm_model", "my-model"), \
-                 patch.object(settings, "llm_json_mode", json_mode):
+                 patch.object(settings, "llm_json_mode", json_mode), \
+                 patch.object(settings, "llm_send_temperature", json_mode):
                 factory.return_value.__enter__.return_value = client
                 self.assertEqual(call_llm("prompt", []), '{}')
                 args = client.chat.completions.create.call_args.kwargs
                 self.assertEqual(args["model"], "my-model")
                 self.assertEqual("response_format" in args, json_mode)
+                self.assertEqual("temperature" in args, json_mode)
 
     def test_backend_token_and_health(self):
         from pydantic import SecretStr

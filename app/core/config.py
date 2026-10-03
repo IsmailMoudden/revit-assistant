@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(default="http://localhost:11434/v1", validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"))
     llm_timeout_seconds: float = Field(default=120, gt=0, le=600)
     llm_json_mode: bool = True
+    llm_send_temperature: bool = True
+    llm_temperature: float = Field(default=0, ge=0, le=2)
     backend_api_key: SecretStr = SecretStr("")
     allowed_origins: str = "http://localhost,http://127.0.0.1"
 

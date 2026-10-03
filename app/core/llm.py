@@ -5,6 +5,8 @@ def call_llm(system_prompt: str, messages: list[dict]) -> str:
     if not settings.llm_model.strip():
         raise ValueError("Set LLM_MODEL to the model identifier offered by your provider.")
     options = {"response_format": {"type": "json_object"}} if settings.llm_json_mode else {}
+    if settings.llm_send_temperature:
+        options["temperature"] = settings.llm_temperature
     with OpenAI(
         api_key=settings.llm_api_key.get_secret_value() or "local",
         base_url=settings.llm_base_url,
@@ -14,7 +16,6 @@ def call_llm(system_prompt: str, messages: list[dict]) -> str:
         response = client.chat.completions.create(
             model=settings.llm_model,
             messages=[{"role": "system", "content": system_prompt}, *messages],
-            temperature=0,
             **options,
         )
     content = response.choices[0].message.content

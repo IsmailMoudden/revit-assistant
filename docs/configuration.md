@@ -10,6 +10,8 @@ directory. Environment values override the file. Restart the backend after chang
 | `LLM_API_KEY` | Your provider credential | Empty for local services |
 | `LLM_TIMEOUT_SECONDS` | Provider timeout | `120` |
 | `LLM_JSON_MODE` | Request JSON object output | `true` |
+| `LLM_SEND_TEMPERATURE` | Include the temperature parameter | `true` |
+| `LLM_TEMPERATURE` | Sampling temperature when enabled | `0` |
 | `BACKEND_API_KEY` | Optional bearer token protecting generation | Empty |
 | `ALLOWED_ORIGINS` | Comma-separated browser origins | Localhost |
 
@@ -45,6 +47,7 @@ LLM_API_KEY=your-own-key
 
 The endpoint must implement Chat Completions. If it rejects `response_format`,
 set `LLM_JSON_MODE=false`; responses must still contain valid action JSON.
+If a model rejects the temperature parameter, set `LLM_SEND_TEMPERATURE=false`.
 Provider support is not universal: test your chosen model with representative commands.
 
 ## Revit Connection
