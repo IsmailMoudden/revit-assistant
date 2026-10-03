@@ -23,8 +23,9 @@ Example instructions:
 > Create a structural frame with 3 bays in X and 2 bays in Y, spaced 5 meters apart.
 
 **Status: experimental.** Review generated operations in a disposable model first.
-The current add-in targets **Revit 2024 on Windows**. Other releases are not
-supported by this build. Revit and third-party model services are licensed separately.
+Separate Windows builds target **Revit 2024, 2025 and 2026**. Runtime behavior
+still needs validation inside each Revit release. Revit and third-party model
+services are licensed separately.
 
 ## Quick Start
 
@@ -58,15 +59,18 @@ accepts connections from Docker. The backend port is exposed only on loopback.
 
 ### Build And Install The Add-in
 
-On Windows with the .NET SDK and Revit 2024:
+On Windows with the .NET 8 SDK, choose your installed Revit release:
 
 ```powershell
-dotnet build "Front-Revit AI/BimAiAssistant/BimAiAssistant.csproj" -c Release
+./scripts/package-addin.ps1 -RevitVersion 2024
+./scripts/package-addin.ps1 -RevitVersion 2025
+./scripts/package-addin.ps1 -RevitVersion 2026
 ```
 
-Copy `BimAiAssistant.dll` and `Newtonsoft.Json.dll` from the build output into
-`Front-Revit AI/BimAiAssistant/Installer/`, then run its `install.bat`.
-The Windows CI also packages these files as a downloadable installer artifact.
+Extract the matching ZIP from `dist/`, close Revit and run its `install.bat`.
+Each package registers only its own Revit version and uses a separate installation
+directory, so the three builds can coexist. Windows CI produces the same ZIPs.
+For build-only commands and output paths, see [the build guide](docs/building.md).
 Start the backend before opening Revit. The add-in connects to
 `http://127.0.0.1:8000` by default. Use `BIM_BACKEND_URL` to choose another server.
 

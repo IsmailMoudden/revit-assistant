@@ -1,24 +1,26 @@
 Revit Assistant - Windows add-in
 ===============================
 
-Experimental build for Autodesk Revit 2024 and Windows 10/11.
-Other Revit releases are not supported by this package.
+Separate packages target Revit 2024, 2025 and 2026 on Windows.
+Use the package matching your installed release. Runtime validation is ongoing.
 
 INSTALL
-1. Place BimAiAssistant.dll and Newtonsoft.Json.dll beside install.bat.
-2. Close Revit and run install.bat.
+1. Extract the complete matching ZIP and close Revit.
+2. Run install.bat. Keep revit-version.txt beside the scripts.
 3. Start your backend on http://127.0.0.1:8000.
-4. Open Revit, select BIM AI > Run AI and enter an instruction.
+4. Open Revit and select BIM AI > Run AI.
+
+Each build installs into %LOCALAPPDATA%\BIMAI\<version> and registers only
+that version. Multiple versions can coexist without replacing each other.
 
 CONFIGURATION
-Set BIM_BACKEND_URL as a Windows user environment variable to use another backend.
-Set BIM_BACKEND_API_KEY if the backend requires a bearer token.
-Restart Revit after changing environment variables.
-Model selection and provider credentials belong in the backend's .env file.
-See the repository README and docs/configuration.md for setup instructions.
+Set BIM_BACKEND_URL to choose another backend. Set BIM_BACKEND_API_KEY if
+it requires a token. Restart Revit after changing environment variables.
+Model selection and provider credentials belong in the backend .env file.
+See README.md and docs/configuration.md in the repository for setup.
 
-Use a disposable model first. All action dimensions use meters.
-Section suggestions are heuristics and do not validate structural adequacy.
+Use a disposable model first. Dimensions use meters. Section suggestions
+are heuristics and do not validate structural adequacy.
 
 UNINSTALL
-Close Revit and run uninstall.bat.
+Close Revit and run uninstall.bat from this package. Other versions stay installed.

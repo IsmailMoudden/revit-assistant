@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2024</RevitVersion>
+    <BaseOutputPath>bin/$(RevitVersion)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj/$(RevitVersion)/</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

@@ -38,8 +38,10 @@ variables. `ActionDispatcher` executes supported actions in subtransactions with
 a parent Revit transaction. Individual action failures roll back independently.
 
 The backend is stateless; conversation history lives in the add-in process.
-Revit 2024 is the current compilation target. The Windows CI builds that target;
-it does not execute Revit or establish compatibility with other versions.
+The compilation targets are Revit 2024 (.NET Framework 4.8) and Revit 2025/2026
+(.NET 8 for Windows). API references, intermediate files, binaries and installer
+packages are isolated by version. Windows CI builds all three targets; it does
+not execute Revit or validate geometry at runtime.
 
 ## Contribution Priorities
 
@@ -47,4 +49,4 @@ it does not execute Revit or establish compatibility with other versions.
 2. Family symbol IDs, level elevations and explicit coordinate conventions.
 3. Plan preview and approval before model changes.
 4. Move/delete handlers with focused integration coverage.
-5. Separate builds and validation for additional Revit versions.
+5. Runtime validation in each supported Revit release.

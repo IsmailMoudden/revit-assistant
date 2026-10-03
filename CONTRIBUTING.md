@@ -9,7 +9,8 @@ Changes to action contracts must update both Python schemas and C# payloads/hand
 Coordinates use meters; element identifiers use strings on the wire.
 
 Run `python -m unittest discover -s tests -v` for backend checks. Build the add-in
-on Windows and verify geometry changes in Revit 2024 before claiming runtime support.
+for all three versions and verify geometry changes in the target Revit release
+before claiming runtime support.
 Do not commit `.env`, credentials, build outputs or third-party Revit binaries.
 
 Use concise commit subjects such as `fix: preserve column base elevation` or

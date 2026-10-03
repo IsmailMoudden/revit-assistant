@@ -12,25 +12,32 @@ jobs:
       - run: python -m unittest discover -s tests -v
   addin:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        revit: ['2024', '2025', '2026']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet build "Front-Revit AI/BimAiAssistant/BimAiAssistant.csproj" -c Release
-      - name: Package Revit 2024 installer
+      - name: Build and package Revit ${{ matrix.revit }}
         shell: pwsh
-        run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'RevitAssistant'
-          New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item 'Front-Revit AI/BimAiAssistant/bin/Release/net48/BimAiAssistant.dll' $stage
-          Copy-Item 'Front-Revit AI/BimAiAssistant/bin/Release/net48/Newtonsoft.Json.dll' $stage
-          Copy-Item 'Front-Revit AI/BimAiAssistant/Installer/install.bat' $stage
-          Copy-Item 'Front-Revit AI/BimAiAssistant/Installer/uninstall.bat' $stage
-          Copy-Item 'Front-Revit AI/BimAiAssistant/Installer/README.txt' $stage
-          Copy-Item 'LICENSE' $stage
-          Compress-Archive -Path $stage -DestinationPath "$env:RUNNER_TEMP/RevitAssistant-Revit2024.zip"
+        run: ./scripts/package-addin.ps1 -RevitVersion '${{ matrix.revit }}' -OutputDirectory '${{ runner.temp }}'
       - uses: actions/upload-artifact@v4
         with:
-          name: revit-2024-addin
-          path: ${{ runner.temp }}/RevitAssistant-Revit2024.zip
+          name: revit-${{ matrix.revit }}-addin
+          path: ${{ runner.temp }}/RevitAssistant-Revit${{ matrix.revit }}.zip
+  installer-checks:
+    needs: addin
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: revit-*-addin
+          merge-multiple: true
+          path: ${{ runner.temp }}/packages
+      - name: Verify isolated installation and removal
+        shell: pwsh
+        run: ./scripts/test-installers.ps1 -PackageDirectory '${{ runner.temp }}/packages'
