@@ -5,14 +5,14 @@
 setlocal
 
 set "PROJECT_ROOT=%~dp0.."
-set "BUILD_OUT=%PROJECT_ROOT%\BimAiAssistant\bin\Release\net48"
+set "BUILD_OUT=%PROJECT_ROOT%\bin\Release\net48"
 set "INSTALLER_DIR=%PROJECT_ROOT%\Installer"
 set "STAGING=%TEMP%\BIMAI_staging"
 set "ZIP_OUT=%INSTALLER_DIR%\BIMAI_Installer.zip"
 
 echo.
 echo Building plugin...
-dotnet build "%PROJECT_ROOT%\BimAiAssistant\BimAiAssistant.csproj" -c Release
+dotnet build "%PROJECT_ROOT%\BimAiAssistant.csproj" -c Release
 if errorlevel 1 (
     echo ERROR: Build failed.
     pause & exit /b 1
