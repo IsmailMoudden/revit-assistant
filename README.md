@@ -29,6 +29,28 @@ services are licensed separately.
 
 ## Quick Start
 
+### For Users
+
+**The Revit add-in runs on Windows.** The Python backend can run on Windows,
+macOS or Linux. For the simplest setup, run both on the same Windows computer.
+Revit has no native macOS version; see
+[Autodesk's system requirements](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/System-requirements-for-Revit-2026-products.html).
+
+1. Install Python 3.11+ and download this repository.
+2. On Windows, double-click `start-backend.bat`. On Mac, open `start-backend.command`.
+3. On first launch, choose your provider, model name and personal key. Dependencies
+   are installed automatically; the key is hidden while typing and stored in `.env`.
+4. On Windows, extract the ZIP matching Revit 2024, 2025 or 2026 and run `install.bat`.
+5. Keep the backend window open, start Revit and select **BIM AI > Run AI**.
+
+Local Ollama requires installing Ollama and downloading a model first. Hosted
+providers can charge for inference. Subsequent launches reuse your configuration.
+On Mac, you can run the backend and develop the project, but the add-in must be
+installed in Revit running under Windows. A Windows VM or remote Windows computer
+still requires a working Revit installation; this project has not validated VM setups.
+
+### Manual Setup
+
 Requires Python 3.11+ and an OpenAI-compatible model endpoint.
 
 ```sh
