@@ -9,6 +9,11 @@ an OpenAI-compatible provider with your own credentials.
 [Getting started](#quick-start) | [Configuration](docs/configuration.md) |
 [Architecture](docs/architecture.md) | [Contributing](CONTRIBUTING.md)
 
+![Revit Assistant interface concept](docs/image.png)
+
+*Interface concept. The current add-in uses dialogs; the docked chat panel and
+the analysis tools shown here are not implemented yet.*
+
 ## What you can build
 
 - Walls, doors, windows, structural columns and beams.
